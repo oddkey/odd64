@@ -689,8 +689,8 @@
 12991 rem *** setting up objects ***
 12992 rem **************************
 12994 rem object types:
-12995 rem 1=food,2=drink,3=walkman,4=armor,5=weapon,6=other,
-12996 rem 7=light source,8=treasure,9=readable,10=key,11=spade,12=unmovable
+12995 rem 1=food,2=drink,3=walkman,4=armor,5=rubiks cube, 6=other,
+12996 rem 7=light source,8=treasure,9=readable,10=key,11=spade,12=unmovable,13=weapon
 13000 for i=0 to ol-1
 13010 read ob$(i,0):read ob$(i,1)
 13020 read op(i,0):read op(i,1):read ot(i):read os(i)
