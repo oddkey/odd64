@@ -1,0 +1,13 @@
+{
+    "name": "BASIC sources",
+    "description": "Example for BASIC",
+    "toolkit": "basic",
+    "sources": [
+        "src/bouncing-balls.bas",
+        "src/colorbars.bas",
+        "src/melody.bas",
+        "src/musical-scale.bas",
+        "src/up-up-and-away.bas"
+    ],
+    "args": ["--lower"]    
+}
