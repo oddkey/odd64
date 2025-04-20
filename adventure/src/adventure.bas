@@ -1,4 +1,4 @@
-#LANG "qb"
+;#LANG "qb"
 1 rem ******************
 2 rem * adventure game *
 3 rem * (c) 2025 oko   *
@@ -245,7 +245,7 @@
 2730 gosub 6000:rem object in inventory?
 2740 if ii=-1 then return:rem nope!
 2760 o=ai(0,ii):rem obj # from inventory
-2770 if ta=1 then print"The man laughs at your feeble attack!":return
+2770 if ta=1 then print"He laughs at your feeble attack!":return
 2780 an=0:gosub 8000:rem attack
 2899 return
 2900 rem ****************
@@ -721,7 +721,7 @@
 17020 next i
 20000 return
 29000 print "{clr}{up/lo lock on}{lower case}{gry1}";n$
-'29010 poke 53280,0:poke 53281,0'
+29010 poke 53280,0:poke 53281,0
 29015 print"H... hello? Where am I?"
 29020 i=3:gosub 8200:rem sleep 3 sec
 29030 return
@@ -730,8 +730,8 @@
 30002 rem ****************
 30003 rem comment out the following line for freebasic
 30005 print "{clr}";
-'30009 for i=0 to cs:poke 53280,co(i):poke 53281,co(i):for t=0 to 400:next:next'
-'30010 poke 53280,8'
+30009 for i=0 to cs:poke 53280,co(i):poke 53281,co(i):for t=0 to 400:next:next
+30010 poke 53280,8
 30020 print"What happened? One moment you were     "
 30021 print"enjoying an episode of The Cosby Show, "
 30022 print"featuring that funny, totally harmless "
@@ -742,10 +742,12 @@
 30100 i=3:gosub 8200:rem sleep 3 sec
 32000 print:return
 33000 print"{blu}Congratulations!{gry1} You found all the"
-33010 print "treasures! Ragnar the witch-king appears"
-33020 print "and gives you a small diamond for all"
-33030 print "your troubles. 'Don't spend it all in"
-33040 print "one place!' he implores."
+33010 print"treasures! Ragnar the witch-king appears"
+33020 print"and gives you a small diamond for all"
+33030 print"your troubles. 'Don't spend it all in"
+33040 print"one place!' he implores.":print
+33050 print"You are suddenly pulled back to your"
+33060 print"home, just in time for Jessica Fletcher!"
 33999 end
 40000 data 11,12,15,1,15:rem flash colors
 41000 rem object data
@@ -840,7 +842,7 @@
 44070 data "In honor of our new business relation, take this!",10,21,11
 44080 data "This is our way of showing appreciation!",10,22,11
 44090 data "My brush! Thank you! I get to keep my job!",9,27,26
-44100 data "I'll trade your coin for this refreshment!",5,5,16
+44100 data "One refreshing beer coming up!",5,5,16
 44999 rem sign data
 45000 data 0,0,"Welcome to Zorkadia, dear adventurer!"
 45001 data "You have been summoned by Ragnar, the"
