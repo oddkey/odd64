@@ -1,0 +1,24 @@
+{
+    "name": "odd64",
+    "description": "Project odd64",
+    "toolkit": "basic",
+    "sources": [
+        "adventure/src/adventure.bas",
+        "cc65-versions-of-basic-examples/basic/src/bouncing-balls.bas",
+        "cc65-versions-of-basic-examples/basic/src/colorbars.bas",
+        "cc65-versions-of-basic-examples/basic/src/melody.bas",
+        "cc65-versions-of-basic-examples/basic/src/musical-scale.bas",
+        "cc65-versions-of-basic-examples/basic/src/up-up-and-away.bas",
+        "cc65-versions-of-basic-examples/cc65/src/bouncing-baals-expanded.c",
+        "cc65-versions-of-basic-examples/cc65/src/bouncing-balls.c",
+        "cc65-versions-of-basic-examples/cc65/src/colorbars.c",
+        "cc65-versions-of-basic-examples/cc65/src/melody.c",
+        "cc65-versions-of-basic-examples/cc65/src/musical-scale.c",
+        "cc65-versions-of-basic-examples/cc65/src/three-voices.c"
+    ],
+    "build": "debug",
+    "definitions": [],
+    "includes": [],
+    "args": [],
+    "compiler": ""
+}

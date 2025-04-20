@@ -1,0 +1,9 @@
+{
+    "name": "BASIC sources",
+    "description": "Example for BASIC",
+    "toolkit": "basic",
+    "sources": [
+        "src/adventure.bas"
+    ],
+    "args": ["--lower"]    
+}

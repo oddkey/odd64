@@ -1,22 +1,22 @@
 ;#LANG "qb"
-1 rem **********************
-2 rem *** adventure game ***
-3 rem *** (c) 2025 oko   ***
-4 rem **********************
+1 rem ******************
+2 rem * adventure game *
+3 rem * (c) 2025 oko   *
+4 rem ******************
 5 cs=4:dim co(cs+1)
 6 for i=0 to cs:read co(i):next
 10 wl=0:dim wo$(4):rem input words
 15 pl=5:dim pr$(pl):rem prompts
-29 rem *** rooms ***
+29 rem * rooms *
 30 rh=5:rw=5:dim ro$(rh,rw,7):dim rd(rh,rw)
-34 rem *** objects ***
+34 rem * objects *
 35 ol=34:rem no. of objects
 36 rem description, positions
 37 dim ob$(ol,2):dim op(ol,2)
 38 rem object type, weapon strength
 39 dim ot(ol):dim os(ol)
 42 il=5:rem max inventory length
-43 rem *** actors, 0 is player ***
+43 rem * actors, 0 is player *
 45 an=-1:al=12:wr=-1
 46 rem description, positions
 47 dim ad$(al,3):dim ap(al,2)
@@ -32,9 +32,9 @@
 75 gosub 10000:rem setup game
 80 gosub 30000:rem welcome text
 85 gosub 5000:rem display location
-100 rem ***********************|
-101 rem *** main loop start ***
-102 rem ***********************
+100 rem *******************
+101 rem * main loop start *
+102 rem *******************
 105 print:print pr$(int(rnd(1)*5));
 110 input in$
 120 gosub 4500:rem split into word array
@@ -46,22 +46,22 @@
 170 gosub 7000:rem other actors actions
 180 if ah(0)<=0 then print:print">>>> Game over!!! <<<<":end
 999 goto 100:rem loop back to start
-1000 rem ***********************
-1001 rem *** "help" command ***
-1002 rem ***********************
+1000 rem ******************
+1001 rem * "help" command *
+1002 rem ******************
 1010 print"Commands:"
 1020 for ci=0 to cl-1:print co$(ci,0)+" / "+co$(ci,1)+" "+co$(ci,2):next
 1025 print"The 'use' command can be used to hold a"+cr$
 1026 print"weapon, wear something or use a usable object."
 1030 return
-1100 rem ***********************
-1101 rem **** "look" command ***
-1102 rem ***********************
+1100 rem ******************
+1101 rem * "look" command *
+1102 rem ******************
 1160 gosub 5000:rem display location
 1170 return
-1200 rem ***************************
-1201 rem *** "inventory" command ***
-1202 rem ***************************
+1200 rem ***********************
+1201 rem * "inventory" command *
+1202 rem ***********************
 1250 print:print"You have:"
 1256 if ic(0)=0 then print"Nothing":goto 1270
 1260 for i=0 to ic(0)-1:print" - ";ob$(ai(0,i),1):next
@@ -72,9 +72,9 @@
 1272 if ah(0)>=30 and ah(0)<50 then print"You are feeling fine."
 1273 if ah(0)>=50 then print"You are in excellent health!"
 1299 return
-1300 rem *********************
-1301 rem *** "dig" command ***
-1302 rem *********************
+1300 rem *****************
+1301 rem * "dig" command *
+1302 rem *****************
 1303 gosub 4700:rem dark?
 1304 if da=1 then print "Can't dig in darkness, man!":return
 1305 fo=0:if ic(0)=0 then goto 1309
@@ -91,15 +91,15 @@
 1370 op(17,0)=ap(0,0):op(17,1)=ap(0,1)
 1380 return
 1499 print"You found nothing interesting":return
-1500 rem **********************
-1501 rem *** "quit" command ***
-1502 rem **********************
+1500 rem ******************
+1501 rem * "quit" command *
+1502 rem ******************
 1510 input "Quit? Are you sure (y/n)";a$
 1520 if a$<>"y" then return
 1530 print"Goodbye!":end
-1600 rem **********************
-1601 rem *** "take" command ***
-1602 rem **********************
+1600 rem ******************
+1601 rem * "take" command *
+1602 rem ******************
 1604 gosub 4700:rem is dark?
 1605 if da=1 then print"Dude, take what!? It's dark!":return
 1610 nq$=w2$:gosub 6200:rem is peron?
@@ -116,9 +116,9 @@
 1811 ic(0)=ic(0)+1:rem increase inventory count
 1812 op(o,0)=-1:op(o,1)=-1:rem clear object positions
 1899 return
-1900 rem **********************
-1901 rem *** "drop" command ***
-1902 rem **********************
+1900 rem ******************
+1901 rem * "drop" command *
+1902 rem ******************
 1904 rem object in inventory?
 1905 iq$=wo$(1):an=0:gosub 6000
 1910 if ii=-1 then return:rem nope!
@@ -129,9 +129,9 @@
 1980 gosub 5500
 1990 print"You dropped the "+ob$(o,1)
 1999 return
-2000 rem **********************
-2001 rem *** "give" command ***
-2002 rem **********************
+2000 rem ******************
+2001 rem * "give" command *
+2002 rem ******************
 2005 gosub 4700:rem is dark?
 2006 if da=1 then print"You can't see anyone!":return
 2010 if wo$(2)="" or wo$(3)="" then print"To who?":return
@@ -159,9 +159,9 @@
 2097 ii=mi:an=0:gosub 5500:rem remove item you gave
 2098 if ic(10)=5 then 33000:rem bank has all treasures?
 2199 return
-2200 rem **********************
-2201 rem *** "use" command ***
-2202 rem **********************
+2200 rem *****************
+2201 rem * "use" command *
+2202 rem *****************
 2205 iq$=w2$:an=0
 2210 gosub 6000:rem object in inventory?
 2215 if ii=-1 then return:rem nope!
@@ -179,9 +179,9 @@
 2270 rem use=wear
 2271 wr=o:print"You are now wearing ";ob$(wr,1):return
 2280 print"You could never solve this damn thing!":return
-2300 rem **********************
-2301 rem *** "open" command ***
-2302 rem **********************
+2300 rem ******************
+2301 rem * "open" command *
+2302 rem ******************
 2303 gosub 4700:rem dark?
 2304 if da=1 then print"Open what!? It's dark!!":return
 2305 nq$=w2$:gosub 6200:rem is person?
@@ -208,9 +208,9 @@
 2496 print"A bird swooped down and grabbed the key!"
 2498 gosub 5500:return
 2499 print"You can't unlock "+ob$(o,1):return
-2500 rem **********************
-2501 rem *** "read" command ***
-2502 rem **********************
+2500 rem ******************
+2501 rem * "read" command *
+2502 rem ******************
 2503 gosub 4700:rem is dark?
 2504 if da=1 then print"Can't read in the dark!":return
 2505 an=0:iq$=wo$(1)
@@ -232,9 +232,9 @@
 2590 print"Bloodnose buried his treasure at the"
 2600 print"beach by the cliffs!":return
 2699 print"There's no text on ";ob$(o,1):return
-2700 rem **********************
-2701 rem *** "kill" command ***
-2702 rem **********************
+2700 rem ******************
+2701 rem * "kill" command *
+2702 rem ******************
 2703 gosub 4700:rem dark?
 2704 if da=1 then print "Can't kill someone you can't see!":return
 2705 if ac(0)=-1 and (wo$(2)="" or wo$(3)="") then print"With what?":return
@@ -250,50 +250,50 @@
 2770 if ta=1 then print"The man laughs at your feeble attack!":return
 2780 an=0:gosub 8000:rem attack
 2899 return
-2900 rem ********************
-2901 rem *** "go" command ***
-2902 rem ********************
+2900 rem ****************
+2901 rem * "go" command *
+2902 rem ****************
 2910 if w2$="w" or w2$="west" then gosub 3000:return
 2920 if w2$="e" or w2$="east" then gosub 3100:return
 2930 if w2$="n" or w2$="north" then gosub 3200:return
 2940 if w2$="s" or w2$="south" then gosub 3300:return
 2950 print"Unable to go "+w2$
 2960 return
-3000 rem *********************
-3001 rem *** check go west ***
-3002 rem *********************
+3000 rem *****************
+3001 rem * check go west *
+3002 rem *****************
 3010 if (rd(ap(0,0), ap(0,1)) and w)=w goto 3030
 3020 print"Unable to go west":return
 3030 ap(0,1)=ap(0,1)-1
 3040 print"You went west"
 3050 gosub 5000:return
-3100 rem *********************
-3101 rem *** check go east ***
-3102 rem *********************
+3100 rem *****************
+3101 rem * check go east *
+3102 rem *****************
 3110 if (rd(ap(0,0), ap(0,1)) and e)=e goto 3140
 3120 print"Unable to go east":return
 3140 ap(0,1)=ap(0,1)+1
 3145 print"You went east"
 3150 gosub 5000:return
-3200 rem **********************
-3201 rem *** check go north ***
-3202 rem **********************
+3200 rem ******************
+3201 rem * check go north *
+3202 rem ******************
 3210 if (rd(ap(0,0), ap(0,1)) and n)=n goto 3240
 3220 print"Unable to go north":return
 3240 ap(0,0)=ap(0,0)-1
 3245 print"You went north"
 3250 gosub 5000:return
-3300 rem **********************
-3301 rem *** check go south ***
-3302 rem **********************
+3300 rem ******************
+3301 rem * check go south *
+3302 rem ******************
 3310 if (rd(ap(0,0), ap(0,1)) and s)=s goto 3340
 3320 print"Unable to go south":return
 3340 ap(0,0)=ap(0,0)+1
 3345 print"You went south"
 3350 gosub 5000:return
-3400 rem *********************
-3401 rem *** "eat" command ***
-3402 rem *********************
+3400 rem *****************
+3401 rem * "eat" command *
+3402 rem *****************
 3410 iq$=w2$:an=0
 3415 gosub 6000:rem object in inventory?
 3420 if ii=-1 then return:rem nope!
@@ -304,9 +304,9 @@
 3440 rem if wandering bread, it move to random location
 3445 if o=13 then op(o,0)=int(rnd(1)*rh):op(o,1)=int(rnd(1)*rw)
 3450 gosub 5500:return:rem remove from inventory
-3500 rem ***********************
-3501 rem *** "drink" command ***
-3502 rem ***********************
+3500 rem *******************
+3501 rem * "drink" command *
+3502 rem *******************
 3510 iq$=w2$:an=0
 3515 gosub 6000:rem object in inventory?
 3520 if ii=-1 then return:rem nope!
@@ -318,10 +318,10 @@
 3545 ai(5,ic(5)-1)=o:rem return beer to landlord
 3550 op(5,0)=int(rnd(1)*rh):op(5,1)=int(rnd(1)*rw):rem release coin!
 3555 gosub 5500:return:rem remove from inventory
-4500 rem **************************
-4501 rem *** split input string ***
-4502 rem ***     into words     ***
-4503 rem **************************
+4500 rem **********************
+4501 rem * split input string *
+4502 rem *     into words     *
+4503 rem **********************
 4505 wl=0:w$="":w2$=""
 4506 for i=0 to 3:wo$(i)="":next i
 4510 for i=0 to len(in$)-1
@@ -336,10 +336,10 @@
 4695 if w$<>"" and wl<4 then wo$(wl)=w$:wl=wl+1
 4697 if wl>1 then w2$=wo$(1)
 4699 return
-4700 rem ****************************
-4701 rem *** is in cave, no lamp? ***
-4702 rem *** if dark, da=1        ***
-4703 rem ****************************
+4700 rem ************************
+4701 rem * is in cave, no lamp? *
+4702 rem * if dark, da=1        *
+4703 rem ************************
 4709 da=0:rem player in cave?
 4710 if not(ap(0,1)=0 and ap(0,0)>=1 and ap(0,0)<4) then return
 4720 o=3:an=0:iq$="":gosub 6050:rem player has lamp?
@@ -347,9 +347,9 @@
 4739 rem lamp in room?
 4740 if op(3,0)=ap(0,0) and op(3,1)=ap(0,1) then return
 4750 da=1:return
-5000 rem ************************
-5001 rem *** display location ***
-5002 rem ************************
+5000 rem ********************
+5001 rem * display location *
+5002 rem ********************
 5004 gosub 4700
 5009 if da=1 then print"It's pitch dark":return:rem no!
 5010 for i=0 to 6
@@ -371,30 +371,30 @@
 5219 print d$
 5220 next i
 5399 return
-5400 rem *****************************
-5401 rem *** It there a sign here? ***
-5402 rem *** ii=-1 if not found    ***
-5403 rem *** else = sign index     ***
-5404 rem *****************************
+5400 rem *************************
+5401 rem * It there a sign here? *
+5402 rem * ii=-1 if not found    *
+5403 rem * else = sign index     *
+5404 rem *************************
 5410 i=0:ii=-1
 5420 if not (sy(i)=ap(0,0) and sx(i)=ap(0,1)) then 5440
 5430 ii=i:return
 5440 i=i+1:if i<sl then 5420
 5445 return
-5450 rem *********************
-5451 rem *** display sign  ***
-5452 rem *** ii=sign index ***
-5453 rem *********************
+5450 rem *****************
+5451 rem * display sign  *
+5452 rem * ii=sign index *
+5453 rem *****************
 5460 for i=0 to 5
 5470 a$=si$(ii,i):if a$<>"" then print a$
 5480 next
 5490 return
-5500 rem ***********************
-5501 rem *** remove object   ***
-5502 rem *** from inventory  ***
-5503 rem *** inv # in 'ii'   ***
-5504 rem *** actor # in 'an' ***
-5505 rem ***********************
+5500 rem *******************
+5501 rem * remove object   *
+5502 rem * from inventory  *
+5503 rem * inv # in 'ii'   *
+5504 rem * actor # in 'an' *
+5505 rem *******************
 5510 o=ai(an,ii)
 5520 if o=ac(an) then ac(an)=-1:rem stop holding
 5525 if an=0 and wr=o then wr=-1:rem stop wearing
@@ -403,13 +403,14 @@
 5550 next i
 5560 ic(an)=ic(an)-1
 5570 return
-6000 rem ****************************
-6001 rem *** check if actor has   ***
-6002 rem *** named object         ***
-6003 rem *** object name in 'iq$' ***
-6004 rem *** actor # in 'an'      ***
-6005 rem ****************************
-6006 ii=-1
+6000 rem *****************************
+6001 rem * check if actor has        *
+6002 rem * named object              *
+6003 rem * object name in 'iq$'      *
+6004 rem * actor # in 'an'           *
+6005 rem * ii=inv # if found else -1 *
+6007 rem *****************************
+6009 ii=-1
 6010 if ic(an)=0 then print "You have nothing!":return
 6015 for i=0 to ic(an)-1
 6016 no$=ob$(ai(an,i),0)
@@ -417,42 +418,42 @@
 6020 next i
 6030 if ii=-1 and an=0 then print"You don't have the "+iq$
 6035 return
-6050 rem **************************
-6051 rem *** check if actor has ***
-6053 rem *** object # in 'o'    ***
-6054 rem *** actor # in 'an'    ***
-6055 rem ****************************
+6050 rem **********************
+6051 rem * check if actor has *
+6053 rem * object # in 'o'    *
+6054 rem * actor # in 'an'    *
+6055 rem **********************
 6057 ii=-1
 6060 for i=0 to ic(an)-1
 6070 if ai(an,i)=o then ii=i
 6080 next i
 6090 if ii=-1 and an=0 then print"You don't have the "+ob$(o,0)
 6099 return:rem inventory # in var 'ii'
-6100 rem ****************************
-6101 rem *** check if a named obj ***
-6102 rem *** is at actor's pos.   ***
-6103 rem *** object name in 'oq$' ***
-6104 rem *** actor # in 'an'      ***
-6105 rem ****************************
+6100 rem ************************
+6101 rem * check if a named obj *
+6102 rem * is at actor's pos.   *
+6103 rem * object name in 'oq$' *
+6104 rem * actor # in 'an'      *
+6105 rem ************************
 6108 o=-1
 6110 for oi=0 to ol-1
 6120 if ob$(oi,0)=oq$ and op(oi,0)=ap(an,0) and op(oi,1)=ap(an,1) then o=oi
 6130 next oi
 6140 if o=-1 then print"There is no "+oq$+" here!"
 6199 return:rem object # in var 'o'
-6200 rem ***************************
-6201 rem *** is named actor at   ***
-6202 rem *** player location     ***
-6203 rem *** actor name in 'nq$' ***
-6204 rem ***************************
+6200 rem ***********************
+6201 rem * is named actor at   *
+6202 rem * player location     *
+6203 rem * actor name in 'nq$' *
+6204 rem ***********************
 6205 an=-1
 6210 for i=0 to al-1
 6220 if ad$(i,0)=nq$ and ap(i,0)=ap(0,0) and ap(i,1)=ap(0,1) then an=i
 6230 next i
 6299 return:rem actor # in var 'an'
-7000 rem *****************************
-7001 rem *** other actor's actions ***
-7002 rem *****************************
+7000 rem *************************
+7001 rem * other actor's actions *
+7002 rem *************************
 7010 for i=1 to al-1
 7015 rem other actor in same location
 7016 rem and is carrying an object?
@@ -461,12 +462,12 @@
 7030 if ah(0)>0 then an=i:ta=0:o=ac(an):gosub 8000
 7200 next i
 7499 return
-8000 rem ****************************
-8001 rem *** attack an actor      ***
-8002 rem *** o=weapon obj #       ***
-8003 rem *** an=attacking actor # ***
-8004 rem *** ta=target actor #    ***
-8005 rem ****************************
+8000 rem ************************
+8001 rem * attack an actor      *
+8002 rem * o=weapon obj #       *
+8003 rem * an=attacking actor # *
+8004 rem * ta=target actor #    *
+8005 rem ************************
 8006 p$="":da=int(rnd(1)*(os(o)+1)):rem damage
 8007 if not (ta=0 and wr<>-1) then 8015
 8008 ar=os(wr):a$="some"
@@ -499,26 +500,26 @@
 8150 op(o,0)=ap(0,0):op(o,1)=ap(0,1)
 8160 next i
 8199 return
-8200 rem ****************************
-8201 rem *** sleep                ***
-8202 rem *** i=seconds            ***
-8203 rem *** t1=current time or 0 ***
-8204 rem ****************************
+8200 rem ************************
+8201 rem * sleep                *
+8202 rem * i=seconds            *
+8203 rem * t1=current time or 0 *
+8204 rem ************************
 8210 if t1=0 then gosub 8300
 8215 t1=tm
 8220 gosub 8300:if tm-t1<i then goto 8220
 8230 t1=0:return
-8300 rem *****************************
-8301 rem *** get current time sec  ***
-8302 rem *** time returned in 'tm' ***
-8303 rem *****************************
+8300 rem *************************
+8301 rem * get current time sec  *
+8302 rem * time returned in 'tm' *
+8303 rem *************************
 8310 if len(time$)=6 then tm=val(time$):return
 8320 rem special handling for fb
 8330 tm$=left$(time$,2)+mid$(time$,4,2)+mid$(time$,7,2)
 8340 tm=val(tm$):return
-9000 rem *********************
-9001 rem *** get command # ***
-9002 rem *********************
+9000 rem *****************
+9001 rem * get command # *
+9002 rem *****************
 9010 ci=0:c=-1
 9019 rem goto instead of for-next loop due to no break support
 9020 if not (wo$(0)=co$(ci,0) or wo$(0)=co$(ci,1)) goto 9030
@@ -533,10 +534,9 @@
 9100 print"I don't understand"
 9110 return
 9200 c=13:w2$=f$:return
-10000 rem ******************
-10001 rem *** setup game ***
-10002 rem ******************
-10003 rem *****************************************
+10000 rem **************
+10001 rem * setup game *
+10002 rem **************
 10010 n$=chr$(13)+chr$(10):gosub 8300:t1=tm
 10020 h=0:b=0:s=1:e=2:n=4:w=8
 10110 ro$(h,b,0)="You are standing on a hilltop, with a "
@@ -685,9 +685,9 @@
 10553 ro$(h,b,3)="see."
 10559 rd(h,b)=w
 11000 if h+1<>rh or b+1<>rw then print"map size mismatch":return
-12990 rem **************************
-12991 rem *** setting up objects ***
-12992 rem **************************
+12990 rem **********************
+12991 rem * setting up objects *
+12992 rem **********************
 12994 rem object types:
 12995 rem 1=food,2=drink,3=walkman,4=armor,5=rubiks cube, 6=other,
 12996 rem 7=light source,8=treasure,9=readable,10=key,11=spade,12=unmovable,13=weapon
@@ -696,9 +696,9 @@
 13020 read op(i,0):read op(i,1):read ot(i):read os(i)
 13030 if op(i,0)=-2 then op(i,0)=int(rnd(1)*rh):op(i,1)=int(rnd(1)*rw)
 13040 next i
-13490 rem *************************
-13491 rem *** setting up actors ***
-13492 rem *************************
+13490 rem *********************
+13491 rem * setting up actors *
+13492 rem *********************
 13500 for i=0 to al-1
 13510 read ad$(i,0):read ad$(i,1):read ad$(i,2)
 13520 read ap(i,0):read ap(i,1):rem position
@@ -706,19 +706,19 @@
 13535 rem inventory
 13540 for t=0 to il-1:read ai(i,t):next t:read ic(i):read ac(i)
 13550 next i
-14000 rem ***************************
-14001 rem *** setting up commands ***
-14002 rem ***************************
+14000 rem ***********************
+14001 rem * setting up commands *
+14002 rem ***********************
 14010 for i=0 to cl-1:read co$(i,0):read co$(i,1):read co$(i,2):next
 15000 pr$(0)="Your command":pr$(1)="What do you want":pr$(2)="My liege"
 15010 pr$(3)="Thy wish":pr$(4)="Now what"
-15995 rem ***************************
-15996 rem *** setting up 'trades' ***
-15997 rem ***************************
+15995 rem ***********************
+15996 rem * setting up 'trades' *
+15997 rem ***********************
 16000 for i=0 to tl-1:read tt$(i),tr(i,0):read tr(i,1):read tr(i,2):next
-16995 rem **************************
-16996 rem *** setting up 'signs' ***
-16997 rem **************************
+16995 rem **********************
+16996 rem * setting up 'signs' *
+16997 rem **********************
 17000 for i=0 to sl-1:read sy(i):read sx(i)
 17010 for t=0 to 5:read si$(i,t):next t
 17020 next i
@@ -728,9 +728,9 @@
 29015 print"H... hello? Where am I?"
 29020 i=3:gosub 8200:rem sleep 3 sec
 29030 return
-30000 rem ********************
-30001 rem *** welcome text ***
-30002 rem ********************
+30000 rem ****************
+30001 rem * welcome text *
+30002 rem ****************
 30003 rem comment out the following line for freebasic
 30005 print "{clr}";
 30009 for i=0 to cs:poke 53280,co(i):poke 53281,co(i):for t=0 to 400:next:next
@@ -768,7 +768,7 @@
 41120 data "flamethrower","a mighty flamethrower",-1,-1,13,20
 41410 data "bread","a wandering bread",-2,-2,1,1
 41140 data "walkman","your sony walkman",0,0,3,1
-41150 data "cube","your rubiks cube",0,1,5,1
+41150 data "cube","your {red}r{grn}u{blu}b{yel}i{wht}k{orng}s{gry1} cube",0,1,5,1
 41160 data "beer","a refreshing beer",-1,-1,2,1
 41170 data "chest","a golden chest",-1,-1,12,1
 41180 data "chest","a silver chest",-1,-1,12,1
@@ -864,7 +864,7 @@
 45030 data 1,2,"Warning! Do not go north! You will"
 45031 data "enter the Valley of the Dead!"
 45032 data "And that is a really, {blk}really{gry1} bad idea!","","",""
-45040 data 1,4,"*** Bank of Zokadia ***"
+45040 data 1,4,"* Bank of Zokadia *"
 45041 data "Trusted by businesses, pirates and"
 45042 data "witch-kings since the year of the toad","","",""
 45050 data 2,0,"Did you remember to bring a lamp?"
