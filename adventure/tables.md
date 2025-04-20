@@ -7,7 +7,7 @@ Objects:
 | 2     | sword        | 13:weapon      | (-1,-1)  | 2:pirate     |
 | 3     | lamp         | 7:light source | (-1,-1)  | 3:trader     |
 | 4     | key,golden   | 10:key         | (-1,-1)  | 1:lumberjack |
-| 5     | coin         | 6:other        | (-2,-2)  |              |
+| 5     | coin         | 6:other        | (-1,-1)  | 12:baboon    |
 | 6     | cutlass      | 13:weapon      | (1,1)    |              |
 | 7     | book         | 9:readable     | (2,0)    |              |
 | 8     | club         | 13:weapon      | (-1,-1)  | 11:king      |
@@ -52,6 +52,7 @@ Actors:
 | 9     | signmaker  | (1,3)    |
 | 10    | clerk      | (2,4)    |
 | 11    | king       | (3,0)    |
+| 12    | baboon     | (2,1)    |
 
 Object trade data:
 

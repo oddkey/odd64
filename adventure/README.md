@@ -316,7 +316,7 @@ health score and an object inventory. The actor may also be holding one of the o
 E.g. one of the actors is a pirate. 
 - It has a short name of "pirate"
 - The pirate has a long name of "An angry pirate"
-- The pirate and the article "the" (the pirate)
+- The pirate has the grammatical article "the" (the pirate)
 - The pirate is located with the coordinates (4,0). 
 - The pirate has a health score of 20.
 - The pirate has the following items in its inventory:
@@ -326,7 +326,7 @@ E.g. one of the actors is a pirate.
 - The pirate is holding the pirate sword
 
 
-In a class based implementation of a game object would look like this:
+A class based implementation of a game object would look like this in Python:
 ```python
 class GameObject:
   def __init__(self, name, long_name, x, y, strength, type):
@@ -344,7 +344,7 @@ cutlass = GameObject("cutlass", "A sharp looking cutlass", 1, 1, 10, 13)
 objects.append(cutlass)
 ```
 
-In a class based implementation of an actor would look like this:
+A class based implementation of an actor would look like this in Python:
 ```python
 class InventoryItem:
 
@@ -377,7 +377,7 @@ For game objects, I used the following arrays:
 38 rem object type, weapon strength
 39 dim ot(ol):dim os(ol)
 ```
-Objects are defined as DATA statements and read into memory using the READ statements:
+Objects are defined as DATA statements and read into memory using READ statements:
 
 ```basic
 12990 rem **********************
@@ -410,7 +410,7 @@ Actors are defined using the following arrays:
 51 dim ai(al,il):dim ic(al):dim ac(al)
 ```
 
-Actors are defined as DATA statements and read into memory using the READ statements:
+Actors are defined as DATA statements and read into memory using READ statements:
 
 ```basic
 13490 rem *********************
@@ -447,7 +447,7 @@ Objects:
 | 2     | sword   | 13:weapon      | (-1,-1)  |
 | 3     | lamp    | 7:light source | (-1,-1)  |
 | 4     | key     | 4:key          | (-1,-1)  |
-| 5     | coin    | 6:other        | random   |
+| 5     | coin    | 6:other        | (-1,-1)  |
 | 6     | cutlass | 13:weapon      | (1,1)    |
 
 Actors:
@@ -459,3 +459,52 @@ Actors:
 | 2     | pirate      | (4,0)     |
 
 The full tables can be found in the [tables.md](tables.md) file.
+
+## Game flow control
+The game main loop is based on using a GOTO statement, since there is no
+"do...while" support in BASIC 2.0. The main loop logic is pretty simple:
+
+1. Print a random prompt and get the input
+2. Parse the input and split into words
+3. Process the first word and return a command number
+4. Execute the command handler
+5. Execute actions for other actors in the same location
+6. Go back to step 1, or exit if the game is over
+
+In order to jump to the right command handler, the on...gosub statement is used. It works simply
+by using the command number as an index to the on...gosub statement. This can be compared to
+the switch...case statement in C. Except that the switch...case statement allows for using
+constants and function calls, which makes it possible for someone who reads the code to actually
+understand what is going on.
+
+Anyway, the main loop looks like this:
+
+```basic
+100 rem *******************
+101 rem * main loop start *
+102 rem *******************
+105 print:print pr$(int(rnd(1)*5));
+110 input in$
+120 gosub 4500:rem split into word array
+130 if wl=0 goto 100
+140 gosub 9000:rem get command #
+150 if c=-1 goto 100:rem unknown command
+160 on c gosub 1000,1100,1200,1300,1500,1600,1900,2000,2200,2300,2500,2700,2900
+165 if c>12 then c=c-13:on c gosub 3400,3500
+170 gosub 7000:rem other actors actions
+180 if ah(0)<=0 then print:print">>>> Game over!!! <<<<":end
+999 goto 100:rem loop back to start
+```
+
+## In conclusion
+This little project set out to confirm whether or not it is possible to write structured 
+programs in BASIC 2.0. And I think I can conclude that it is possible - to a certain degree!
+As long as you make sure to use the GOSUB statement as a replacement for functions and
+document the "functions" using thorough comments, the code will be readable and maintainable.
+The lack of typed structures and long variable names are huge obstacles, both when it comes
+to maintaining and refactoring the code. But for minor projects like this, it is not a big deal.
+
+Anyway, I had a lot of fun writing this tiny text adventure. Hopefully other retro computer enthusiasts
+will find it interesting as well. Thank you for reading!
+
+ - Kenneth Oden, 2025

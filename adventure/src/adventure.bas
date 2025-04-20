@@ -17,7 +17,7 @@
 39 dim ot(ol):dim os(ol)
 42 il=5:rem max inventory length
 43 rem * actors, 0 is player *
-45 an=-1:al=12:wr=-1
+45 an=-1:al=13:wr=-1
 46 rem description, positions, health
 47 dim ad$(al,3):dim ap(al,2):dim ah(al)
 50 rem inventory, inv. count, carrying
@@ -314,7 +314,9 @@
 3535 ah(0)=ah(0)+os(o):rem increase health
 3540 if o<>16 then goto 3555
 3545 ai(5,ic(5)-1)=o:rem return beer to landlord
-3550 op(5,0)=int(rnd(1)*rh):op(5,1)=int(rnd(1)*rw):rem release coin!
+3549 rem respawn baboon and return coin to inventory
+3550 ai(12,0)=5:ah(12)=5
+3551 ap(12,0)=int(rnd(1)*rh):ap(12,1)=int(rnd(1)*rw)
 3555 gosub 5500:return:rem remove from inventory
 4500 rem **********************
 4501 rem * split input string *
@@ -757,7 +759,7 @@
 41020 data "sword","a sharp pirate sword",-1,-1,13,15
 41030 data "lamp","a shiny brass lamp",-1,-1,7,5
 41040 data "key","a large golden key",-1,-1,10,3
-41050 data "coin","a wandering coin",-2,-2,6,1
+41050 data "coin","a copper coin",-1,-1,6,1
 41060 data "cutlass","a sharp looking cutlass",1,1,13,10
 41070 data "book","a really old and dusty book",2,0,9,1
 41080 data "club","a wooden club",-1,-1,13,20
@@ -815,6 +817,8 @@
 42105 data 2,4,20,10,11,-1,-1,-1,2,-1
 42110 data "king","The mountain king","the "
 42115 data 3,0,30,8,20,-1,-1,-1,2,8
+42120 data "baboon","A smelly, orange baboon","the "
+42125 data 2,1,5,5,-1,-1,-1,-1,1,5
 43000 rem commands
 43010 data "help","h",""
 43020 data "look","l",""
