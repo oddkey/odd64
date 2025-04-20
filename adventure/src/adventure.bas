@@ -799,22 +799,22 @@
 42020 data "pirate","An angry pirate","the "
 42025 data 4,0,20,2,1,27,-1,-1,3,2
 42030 data "trader","An eager trader",""
-42035 data 0,4,10,10,25,3,24,-1,4,-1
+42035 data 0,4,50,10,25,3,24,-1,4,-1
 42040 data "dragon","An enormous dragon","the "
 42045 data 3,4,50,12,18,-1,-1,-1,2,12
 42050 data "landlord","The landlord","the "
-42055 data 0,3,20,10,16,-1,-1,-1,2,-1
+42055 data 0,3,50,10,16,-1,-1,-1,2,-1
 42060 data "zombie","A brain-eating zombie","the "
 42065 data 0,2,20,9,-1,-1,-1,-1,1,9
 42070 data "troll","An enormous cave troll","the "
 42075 data 1,0,20,0,19,-1,-1,-1,2,0
 42080 data "guard","A bored guard watching the gates","the "
-42085 data 1,2,20,10,28,-1,-1,-1,2,-1
+42085 data 1,2,50,10,28,-1,-1,-1,2,-1
 42090 data "signmaker"
 42091 data "A nervous signmaker","the "
-42095 data 2,3,20,10,26,-1,-1,-1,2,-1
+42095 data 2,3,50,10,26,-1,-1,-1,2,-1
 42100 data "clerk","A pleasant looking bank clerk","the "
-42105 data 2,4,20,10,11,-1,-1,-1,2,-1
+42105 data 2,4,50,10,11,-1,-1,-1,2,-1
 42110 data "king","The mountain king","the "
 42115 data 3,0,30,8,20,-1,-1,-1,2,8
 42120 data "baboon","A smelly, orange baboon","the "
