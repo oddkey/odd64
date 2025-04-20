@@ -1,4 +1,4 @@
-;#LANG "qb"
+#LANG "qb"
 1 rem ******************
 2 rem * adventure game *
 3 rem * (c) 2025 oko   *
@@ -18,10 +18,8 @@
 42 il=5:rem max inventory length
 43 rem * actors, 0 is player *
 45 an=-1:al=12:wr=-1
-46 rem description, positions
-47 dim ad$(al,3):dim ap(al,2)
-48 rem strength, health
-49 dim sa(al):dim ah(al)
+46 rem description, positions, health
+47 dim ad$(al,3):dim ap(al,2):dim ah(al)
 50 rem inventory, inv. count, carrying
 51 dim ai(al,il):dim ic(al):dim ac(al)
 55 cl=15:dim co$(cl,3):rem commands
@@ -700,10 +698,9 @@
 13491 rem * setting up actors *
 13492 rem *********************
 13500 for i=0 to al-1
-13510 read ad$(i,0):read ad$(i,1):read ad$(i,2)
-13520 read ap(i,0):read ap(i,1):rem position
-13530 read sa(i):read ah(i):rem strength, health
-13535 rem inventory
+13510 read ad$(i,0):read ad$(i,1):read ad$(i,2):rem name
+13520 read ap(i,0):read ap(i,1):read ah(i):rem position, health
+13530 rem inventory
 13540 for t=0 to il-1:read ai(i,t):next t:read ic(i):read ac(i)
 13550 next i
 14000 rem ***********************
@@ -724,7 +721,7 @@
 17020 next i
 20000 return
 29000 print "{clr}{up/lo lock on}{lower case}{gry1}";n$
-29010 poke 53280,0:poke 53281,0
+'29010 poke 53280,0:poke 53281,0'
 29015 print"H... hello? Where am I?"
 29020 i=3:gosub 8200:rem sleep 3 sec
 29030 return
@@ -733,8 +730,8 @@
 30002 rem ****************
 30003 rem comment out the following line for freebasic
 30005 print "{clr}";
-30009 for i=0 to cs:poke 53280,co(i):poke 53281,co(i):for t=0 to 400:next:next
-30010 poke 53280,8
+'30009 for i=0 to cs:poke 53280,co(i):poke 53281,co(i):for t=0 to 400:next:next'
+'30010 poke 53280,8'
 30020 print"What happened? One moment you were     "
 30021 print"enjoying an episode of The Cosby Show, "
 30022 print"featuring that funny, totally harmless "
@@ -788,34 +785,34 @@
 41320 data "cat","a black cat",1,3,1,10
 41330 data "dog","a good dog",1,4,1,10
 41996 rem actors data
-41997 rem shortname, longname, pronoun
+41997 rem shortname, longname, grammatical article
 41998 rem y-pos, x-pos, strength, health,
 41999 rem inv1, inv2, inv3, inv4,inv-len,carry #
 42000 data "you","You",""
-42005 data 0,0,10,50,-1,-1,-1,-1,-1,0,-1
+42005 data 0,0,50,-1,-1,-1,-1,-1,0,-1
 42010 data "lumberjack","A strong looking lumberjack","the "
-42015 data 1,1,2,20,4,-1,-1,-1,-1,1,-1
+42015 data 1,1,20,4,-1,-1,-1,-1,1,-1
 42020 data "pirate","An angry pirate","the "
-42025 data 4,0,10,20,2,1,27,-1,-1,3,2
+42025 data 4,0,20,2,1,27,-1,-1,3,2
 42030 data "trader","An eager trader",""
-42035 data 0,4,1,10,10,25,3,24,-1,4,-1
+42035 data 0,4,10,10,25,3,24,-1,4,-1
 42040 data "dragon","An enormous dragon","the "
-42045 data 3,4,6,50,12,18,-1,-1,-1,2,12
+42045 data 3,4,50,12,18,-1,-1,-1,2,12
 42050 data "landlord","The landlord","the "
-42055 data 0,3,6,20,10,16,-1,-1,-1,2,-1
+42055 data 0,3,20,10,16,-1,-1,-1,2,-1
 42060 data "zombie","A brain-eating zombie","the "
-42065 data 0,2,6,20,9,-1,-1,-1,-1,1,9
+42065 data 0,2,20,9,-1,-1,-1,-1,1,9
 42070 data "troll","An enormous cave troll","the "
-42075 data 1,0,6,20,0,19,-1,-1,-1,2,0
+42075 data 1,0,20,0,19,-1,-1,-1,2,0
 42080 data "guard","A bored guard watching the gates","the "
-42085 data 1,2,6,20,10,28,-1,-1,-1,2,-1
+42085 data 1,2,20,10,28,-1,-1,-1,2,-1
 42090 data "signmaker"
 42091 data "A nervous signmaker","the "
-42095 data 2,3,6,20,10,26,-1,-1,-1,2,-1
+42095 data 2,3,20,10,26,-1,-1,-1,2,-1
 42100 data "clerk","A pleasant looking bank clerk","the "
-42105 data 2,4,6,20,10,11,-1,-1,-1,2,-1
+42105 data 2,4,20,10,11,-1,-1,-1,2,-1
 42110 data "king","The mountain king","the "
-42115 data 3,0,20,30,8,20,-1,-1,-1,2,8
+42115 data 3,0,30,8,20,-1,-1,-1,2,8
 43000 rem commands
 43010 data "help","h",""
 43020 data "look","l",""
