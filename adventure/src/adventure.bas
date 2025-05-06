@@ -24,7 +24,7 @@
 51 dim ai(al,il):dim ic(al):dim ac(al)
 55 cl=15:dim co$(cl,3):rem commands
 59 rem trades, texts, trade objects (actor-to-from)
-60 tl=11:dim tt$(tl):dim tr(tl,2)
+60 tl=11:dim tt$(tl,2):dim tr(tl,2)
 61 sl=13:dim si$(sl,6):dim sy(sl):dim sx(sl):rem signs
 70 gosub 29000:rem initial colors
 75 gosub 10000:rem setup game
@@ -144,7 +144,7 @@
 2070 if not (an=tr(t,0) and tr(t,1)=ai(0,mi)) then goto 2078
 2071 o=tr(t,2):gosub 6050:rem actor has trade item?
 2072 if ii=-1 then 2090:rem nope!
-2073 print tt$(t):ai(0,mi)=tr(t,2):ai(an,ii)=tr(t,1):fo=1:rem yes!
+2073 print tt$(t,0):print tt$(t,1):ai(0,mi)=tr(t,2):ai(an,ii)=tr(t,1):fo=1
 2074 print "The "+nq$+" gave you "+ob$(ai(0,mi),1)
 2075 if ac(0)=tr(t,1) then ac(0)=-1
 2078 t=t+1:if t<tl and fo=0 then 2070
@@ -534,9 +534,9 @@
 9100 print"I don't understand"
 9110 return
 9200 c=13:w2$=f$:return
-10000 rem **************
-10001 rem * setup game *
-10002 rem **************
+10000 rem ******************
+10001 rem * setup game map *
+10002 rem ******************
 10010 n$=chr$(13)+chr$(10):gosub 8300:t1=tm
 10020 h=0:b=0:s=1:e=2:n=4:w=8
 10030 for h=0 to rh-1
@@ -545,9 +545,9 @@
 10060 read rd(h,b)
 10070 next b
 10080 next h
-12990 rem **********************
-12991 rem * setting up objects *
-12992 rem **********************
+12990 rem *****************
+12991 rem * setup objects *
+12992 rem *****************
 12994 rem object types:
 12995 rem 1=food,2=drink,3=walkman,4=armor,5=rubiks cube, 6=other,
 12996 rem 7=light source,8=treasure,9=readable,10=key,11=spade,12=unmovable,13=weapon
@@ -555,28 +555,28 @@
 13010 read ob$(i,0),ob$(i,1),op(i,0),op(i,1),ot(i),os(i)
 13030 if op(i,0)=-2 then op(i,0)=int(rnd(1)*rh):op(i,1)=int(rnd(1)*rw)
 13040 next i
-13490 rem *********************
-13491 rem * setting up actors *
-13492 rem *********************
+13490 rem ****************
+13491 rem * setup actors *
+13492 rem ****************
 13500 for i=0 to al-1
 13510 rem name,long name,article,position,health,
 13520 read ad$(i,0),ad$(i,1),ad$(i,2),ap(i,0),ap(i,1),ah(i)
 13530 rem inventory
 13540 for t=0 to il-1:read ai(i,t):next t:read ic(i),ac(i)
 13550 next i
-14000 rem ***********************
-14001 rem * setting up commands *
-14002 rem ***********************
+14000 rem ******************
+14001 rem * setup commands *
+14002 rem ******************
 14010 for i=0 to cl-1:read co$(i,0),co$(i,1),co$(i,2):next
 15000 pr$(0)="Your command":pr$(1)="What do you want":pr$(2)="My liege"
 15010 pr$(3)="Thy wish":pr$(4)="Now what"
-15995 rem ***********************
-15996 rem * setting up 'trades' *
-15997 rem ***********************
-16000 for i=0 to tl-1:read tt$(i),tr(i,0),tr(i,1),tr(i,2):next
-16995 rem **********************
-16996 rem * setting up 'signs' *
-16997 rem **********************
+15995 rem ******************
+15996 rem * setup 'trades' *
+15997 rem ******************
+16000 for i=0 to tl-1:read tt$(i,0),tt$(i,1),tr(i,0),tr(i,1),tr(i,2):next
+16995 rem *****************
+16996 rem * setup 'signs' *
+16997 rem *****************
 17000 for i=0 to sl-1:read sy(i),sx(i)
 17010 for t=0 to 5:read si$(i,t):next t
 17020 next i
@@ -611,6 +611,8 @@
 33060 print"home, just in time for Jessica Fletcher!"
 33999 end
 39000 data 11,12,15,1,15:rem flash colors
+40000 rem map data: texts, exits as combined bits:
+40001 rem s=1:e=2:n=4:w=8
 40010 data "You are standing on a hilltop, with a "
 40011 data "vista over a beautiful landscape. To "
 40012 data "the northwest there are tall mountains."
@@ -718,13 +720,16 @@
 40333 data "There is a beach to the south. A narrow"
 40334 data "path leads to the south and the north."
 40339 data "","",7
-40340 data "You are inside the tower. "
-40341 data "To the east there are stairs that goes"
-40342 data "up to the top."
-40349 data "","","","",10
+40340 data "You are inside the tower."
+40341 data "The walls are covered in black soot."
+40342 data "To the east there are stairs that goes"
+40343 data "up to the top."
+40349 data "","","",10
 40350 data "You're at the top of the ancient tower."
-40351 data "The stairs go down to the west."
-40359 data "","","","","",8
+40351 data "The smell of centuries old dragon poo"
+40352 data "makes you gag! :-&"
+40353 data "The stairs go down to the west."
+40359 data "","","",8
 40410 data "You are standing on the deck of the"
 40411 data "pirate ship 'Honk If Ye're lubricious'."
 40412 data "This looks just like the ship from 'The"
@@ -840,17 +845,26 @@
 43140 data "eat","devour","<food>"
 43150 data "drink","swallow","<liquid>"
 43999 rem trade object data
-44000 data "What interesting music! Now I'm not bored anymore!",8,14,28
-44010 data "What an interesting, colorful cube!",3,15,3
-44020 data "I just love books about princess saving knights!",3,7,24
-44030 data "Yay! I've been looking for an arm for my collection!",3,9,25
-44040 data "My axe! Now I can get to work! Thanks, little dude!",1,0,4
-44050 data "To celebrate your first deposit, take this!",10,19,11
-44060 data "To celebrate your new account, have this!",10,20,11
-44070 data "In honor of our new business relation, take this!",10,21,11
-44080 data "This is our way of showing appreciation!",10,22,11
-44090 data "My brush! Thank you! I get to keep my job!",9,27,26
-44100 data "One refreshing beer coming up!",5,5,16
+44000 data "What interesting music! Now I'm not"
+44001 data "bored anymore!",8,14,28
+44010 data "What an interesting, colorful cube!"
+44011 data "I'll add it to my weird collection!",3,15,3
+44020 data "I just love books about princess saving"
+44021 data "knights! It's one of my charming quirks!",3,7,24
+44030 data "Yay! I've been looking for an arm for"
+44031 data "my arms collection!",3,9,25
+44040 data "My axe! Now I can get to work! Thanks,"
+44041 data "little dude! Maybe you want this?",1,0,4
+44050 data "To celebrate your first deposit, please"
+44051 data "accept this gift!",10,19,11
+44060 data "To celebrate your new account, please"
+44061 data "accept this gift!",10,20,11
+44070 data "","",10,21,11
+44080 data "","",10,22,11
+44090 data "My brush! Thank you! Now the boss won't"
+44091 data "fire me after all!",9,27,26
+44100 data "One refreshing beer coming up! Enjoy!"
+44101 data "But keep your hands off my daughter!",5,5,16
 44999 rem sign data
 45000 data 0,0,"Welcome to Zorkadia, dear adventurer!"
 45001 data "You have been summoned by Ragnar, the"
@@ -871,7 +885,7 @@
 45030 data 1,2,"Warning! Do not go north! You will"
 45031 data "enter the Valley of the Dead!"
 45032 data "And that is a really, {blk}really{gry1} bad idea!","","",""
-45040 data 1,4,"* Bank of Zokadia *"
+45040 data 1,4,"* Bank of Zorkadia *"
 45041 data "Trusted by businesses, pirates and"
 45042 data "witch-kings since the year of the toad","","",""
 45050 data 2,0,"Did you remember to bring a lamp?"
