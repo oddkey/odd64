@@ -8,7 +8,7 @@
 10 wl=0:dim wo$(4):rem input words
 15 pl=5:dim pr$(pl):rem prompts
 29 rem * rooms *
-30 rh=5:rw=5:dim ro$(rh,rw,7):dim rd(rh,rw)
+30 rh=5:rw=5:rg=0:rem rg=gate room
 34 rem * objects *
 35 ol=34:rem no. of objects
 36 rem description, positions
@@ -198,7 +198,7 @@
 2450 if uo<>29 goto 2499
 2460 an=0:o=28:gosub 6050:rem has town key?
 2470 if ii=-1 then return
-2480 print"You unlocked the gate!":rd(1,2)=rd(1,2)+e
+2480 print"You unlocked the gate!":rg=e:di=di+e
 2481 print"A squirrel appeared and took the key!"
 2482 gosub 5500:return
 2490 print"You unlocked the ";ob$(uo,0);". It contains ";ob$(o,1);"!"
@@ -260,7 +260,7 @@
 3000 rem *****************
 3001 rem * check go west *
 3002 rem *****************
-3010 if (rd(ap(0,0), ap(0,1)) and w)=w goto 3030
+3010 if (di and w)=w goto 3030
 3020 print"Unable to go west":return
 3030 ap(0,1)=ap(0,1)-1
 3040 print"You went west"
@@ -268,7 +268,7 @@
 3100 rem *****************
 3101 rem * check go east *
 3102 rem *****************
-3110 if (rd(ap(0,0), ap(0,1)) and e)=e goto 3140
+3110 if (di and e)=e goto 3140
 3120 print"Unable to go east":return
 3140 ap(0,1)=ap(0,1)+1
 3145 print"You went east"
@@ -276,7 +276,7 @@
 3200 rem ******************
 3201 rem * check go north *
 3202 rem ******************
-3210 if (rd(ap(0,0), ap(0,1)) and n)=n goto 3240
+3210 if (di and n)=n goto 3240
 3220 print"Unable to go north":return
 3240 ap(0,0)=ap(0,0)-1
 3245 print"You went north"
@@ -284,7 +284,7 @@
 3300 rem ******************
 3301 rem * check go south *
 3302 rem ******************
-3310 if (rd(ap(0,0), ap(0,1)) and s)=s goto 3340
+3310 if (di and s)=s goto 3340
 3320 print"Unable to go south":return
 3340 ap(0,0)=ap(0,0)+1
 3345 print"You went south"
@@ -352,9 +352,7 @@
 5002 rem ********************
 5004 gosub 4700
 5009 if da=1 then print"It's pitch dark":return:rem no!
-5010 for i=0 to 6
-5020 rd$=ro$(ap(0,0),ap(0,1),i):if rd$<>"" then print rd$
-5030 next i
+5010 gosub 35000
 5050 i=0
 5060 gosub 5400
 5070 if ii<>-1 then print "There is a sign here!"
@@ -539,12 +537,6 @@
 10002 rem ******************
 10010 n$=chr$(13)+chr$(10):gosub 8300:t1=tm
 10020 h=0:b=0:s=1:e=2:n=4:w=8
-10030 for h=0 to rh-1
-10040 for b=0 to rw-1
-10050 for i=0 to 6:read ro$(h,b,i):next i
-10060 read rd(h,b)
-10070 next b
-10080 next h
 12990 rem *****************
 12991 rem * setup objects *
 12992 rem *****************
@@ -610,157 +602,170 @@
 33050 print"You are suddenly pulled back to your"
 33060 print"home, just in time for Jessica Fletcher!"
 33999 end
-39000 data 11,12,15,1,15:rem flash colors
+35000 yp=ap(0,0)+1:xp=ap(0,1)+1
+35001 on yp gosub 35010,35020,35030,35040,35050
+35005 return
+35010 on xp gosub 40010,40020,40030,40040,40050
+35015 return
+35020 on xp gosub 40110,40120,40130,40140,40150
+35025 return
+35030 on xp gosub 40210,40220,40230,40240,40250
+35035 return
+35040 on xp gosub 40310,40320,40330,40340,40350
+35045 return
+35050 on xp gosub 40410,40420,40430,40440,40450
+35055 return
 40000 rem map data: texts, exits as combined bits:
 40001 rem s=1:e=2:n=4:w=8
-40010 data "You are standing on a hilltop, with a "
-40011 data "vista over a beautiful landscape. To "
-40012 data "the northwest there are tall mountains."
-40013 data "Somewhere far to the south you glimpse "
-40014 data "an ocean. A tall structure can be "
-40015 data "spotted to the southeast. There is a"
-40016 data "path to the east leading to a forest."
-40019 data 2
-40020 data "You are in a forest. Ancient trees"
-40021 data "surround you, quite majestic actually!"
-40022 data "A path continues to the south and west."
-40023 data "A mighty river runs from the mountains"
-40024 data "in the north towards the sea far to the"
-40025 data "south, blocking passage to the east."
-40029 data "",9
-40030 data "You are in the valley of the dead! A  "
-40031 data "The valley truly is one spooky place!"
-40032 data "You feel eyes peering at you from"
-40033 data "behind large boulders that look like"
-40034 data "the tombstones of giants!"
-40035 data "The only exit is a path to the south."
-40039 data "",1
-40040 data "You are inside 'The Drunken Cow'."
-40041 data "This place reeks of ale and tobacco."
-40042 data "But the musicians playing on the stage"
-40043 data "somehow reminds you of early AC/DC!"
-40044 data "Some of the tipsy customers are having"
-40045 data "fun throwing food at the band."
-40046 data "Exit to the south."
-40049 data 1
-40050 data "You are inside the store named 'Honest"
-40051 data "Trader Jack's'. This place sure has a"
-40052 data "lot of weird stuff!"
-40053 data "You may exit the store to the south."
-40059 data "","","",1
-40110 data "You have entered a vast chamber, deep"
-40111 data "inside the mountain."
-40112 data "You may exit to the south."
-40119 data "","","","",1
-40120 data "You are in a forest."
-40121 data "There is a river to the east. Paths"
-40122 data "run north and south."
-40129 data "","","","",5
-40130 data "You are outside a town called Bob."
-40131 data "The town gate is to the east."
-40132 data "There's a river to the west."
-40139 data "","","","",5
-40140 data "You are on the westside of the town"
-40141 data "named 'Bob'. To the north you see an"
-40142 data "inn named 'The Drunken Cow'. To the"
-40143 data "south you see the signmakers store."
-40144 data "A road continues east and west."
-40145 data "For a town, there are surprisingly few"
-40146 data "buildings!"
-40149 data 15
-40150 data "You are on the eastside of the town."
-40151 data "There's a store named 'Honest Trader"
-40152 data "Jack's.' to the north. To the south you"
-40153 data "see a bank named 'Bank og Zorkadia'."
-40154 data "To the east there is a wall protecting"
-40155 data "the town from bandits and Jehovah's"
-40156 data "Witnesses."
-40159 data 13
-40210 data "You are inside a large, smelly cave."
-40211 data "There are exit to the south, north and"
-40212 data "west."
-40219 data "","","","",7
-40220 data "You are standing close to a cave"
-40221 data "entrance to the west."
-40222 data "There's a bridge crossing a river to"
-40223 data "the east. A path leads north and south."
-40229 data "","","",15
-40230 data "You are standing outside some fortified"
-40231 data "town walls to the east. You can see"
-40232 data "the town gates further to the north."
-40233 data "There is a bridge crossing a river to"
-40234 data "the west. There is a tower in the"
-40235 data "southeast direction."
-40239 data "",13
-40240 data "You are in the signmakers store."
-40241 data "This is probably the source of all the"
-40242 data "signs you've been seeing everywhere!"
-40243 data "The exit is to the north."
-40249 data "","","",4
-40250 data "You are inside the Bank of Zorkadia."
-40251 data "Unlike other locations you have"
-40252 data "visited in this weird land, this place"
-40253 data "seems clean and organized."
-40259 data "","","",4
-40310 data "You are standing in the hall of the"
-40311 data "mountain king. You must be, why else"
-40312 data "would that spooky Grieg-music be "
-40313 data "playing in the background. The exit to"
-40314 data "the north sure seems tempting now!"
-40319 data "","",4
-40320 data "You are standing in a cornfield. There"
-40321 data "are mountains to the west. To the east"
-40322 data "there is a large river. The river."
-40323 data "flows towards the sea to the south."
-40324 data "A small path leads south and north."
-40329 data "","",5
-40330 data "You are standing next to an old tower"
-40331 data "to the east. A river to the west."
-40332 data "There is a memorial of some kind here."
-40333 data "There is a beach to the south. A narrow"
-40334 data "path leads to the south and the north."
-40339 data "","",7
-40340 data "You are inside the tower."
-40341 data "The walls are covered in black soot."
-40342 data "To the east there are stairs that goes"
-40343 data "up to the top."
-40349 data "","","",10
-40350 data "You're at the top of the ancient tower."
-40351 data "The smell of centuries old dragon poo"
-40352 data "makes you gag! :-&"
-40353 data "The stairs go down to the west."
-40359 data "","","",8
-40410 data "You are standing on the deck of the"
-40411 data "pirate ship 'Honk If Ye're lubricious'."
-40412 data "This looks just like the ship from 'The"
-40413 data "Goonies'! Woops, did I spoil the movie"
-40414 data "for you? Sorry!"
-40415 data "You may exit the ship to the east."
-40419 data "",2
-40420 data "You are standing in a cove that ends in"
-40421 data "the sea to the south."
-40422 data "To the west a pirate vessel named 'Honk"
-40423 data "If Ye're lubricious' is docked. A great"
-40424 data "river to the east flows into the sea."
-40429 data "","",12
-40430 data "You're walking on a very sandy beach.  "
-40431 data "The sea lies ahead of you to the south."
-40432 data "There's a river running into the ocean"
-40433 data "to the west. The beach continues to the"
-40434 data "to the east."
-40439 data "","",6
-40440 data "You are standing on a nice beach that"
-40441 data "continues to the west and east. To the"
-40442 data "south a vast ocean blocks further"
-40443 data "passage. A dark tower looms over you"
-40444 data "to the north. You can't see any"
-40445 data "entrance into the tower."
-40449 data "",10
-40450 data "You are on a beach that ends in a cliff"
-40451 data "to the north. To the southeast the"
-40452 data "ocean stretches as far as your eyes can"
-40453 data "see."
-40459 data "","","",8
+40010 print"You are standing on a hilltop, with a "
+40011 print"vista over a beautiful landscape. To "
+40012 print"the northwest there are tall mountains."
+40013 print"Somewhere far to the south you glimpse "
+40014 print"an ocean. A tall structure can be "
+40015 print"spotted to the southeast. There is a"
+40016 print"path to the east leading to a forest."
+40019 di=2:return
+40020 print"You are in a forest. Ancient trees"
+40021 print"surround you, quite majestic actually!"
+40022 print"A path continues to the south and west."
+40023 print"A mighty river runs from the mountains"
+40024 print"in the north towards the sea far to the"
+40025 print"south, blocking passage to the east."
+40029 di=9:return
+40030 print"You are in the valley of the dead! A  "
+40031 print"The valley truly is one spooky place!"
+40032 print"You feel eyes peering at you from"
+40033 print"behind large boulders that look like"
+40034 print"the tombstones of giants!"
+40035 print"The only exit is a path to the south."
+40039 di=1:return
+40040 print"You are inside 'The Drunken Cow'."
+40041 print"This place reeks of ale and tobacco."
+40042 print"But the musicians playing on the stage"
+40043 print"somehow reminds you of early AC/DC!"
+40044 print"Some of the tipsy customers are having"
+40045 print"fun throwing food at the band."
+40046 print"Exit to the south."
+40049 di=1:return
+40050 print"You are inside the store named 'Honest"
+40051 print"Trader Jack's'. This place sure has a"
+40052 print"lot of weird stuff!"
+40053 print"You may exit the store to the south."
+40059 di=1:return
+40110 print"You have entered a vast chamber, deep"
+40111 print"inside the mountain."
+40112 print"You may exit to the south."
+40119 di=1:return
+40120 print"You are in a forest."
+40121 print"There is a river to the east. Paths"
+40122 print"run north and south."
+40129 di=5:return
+40130 print"You are outside a town called Bob."
+40131 print"The town gate is to the east."
+40132 print"There's a river to the west."
+40139 di=5+rg:return
+40140 print"You are on the westside of the town"
+40141 print"named 'Bob'. To the north you see an"
+40142 print"inn named 'The Drunken Cow'. To the"
+40143 print"south you see the signmakers store."
+40144 print"A road continues east and west."
+40145 print"For a town, there are surprisingly few"
+40146 print"buildings!"
+40149 di=15:return
+40150 print"You are on the eastside of the town."
+40151 print"There's a store named 'Honest Trader"
+40152 print"Jack's.' to the north. To the south you"
+40153 print"see a bank named 'Bank og Zorkadia'."
+40154 print"To the east there is a wall protecting"
+40155 print"the town from bandits and Jehovah's"
+40156 print"Witnesses."
+40159 di=13:return
+40210 print"You are inside a large, smelly cave."
+40211 print"There are exit to the south, north and"
+40212 print"west."
+40219 di=7:return
+40220 print"You are standing close to a cave"
+40221 print"entrance to the west."
+40222 print"There's a bridge crossing a river to"
+40223 print"the east. A path leads north and south."
+40229 di=15:return
+40230 print"You are standing outside some fortified"
+40231 print"town walls to the east. You can see"
+40232 print"the town gates further to the north."
+40233 print"There is a bridge crossing a river to"
+40234 print"the west. There is a tower in the"
+40235 print"southeast direction."
+40239 di=13:return
+40240 print"You are in the signmakers store."
+40241 print"This is probably the source of all the"
+40242 print"signs you've been seeing everywhere!"
+40243 print"The exit is to the north."
+40249 di=4:return
+40250 print"You are inside the Bank of Zorkadia."
+40251 print"Unlike other locations you have"
+40252 print"visited in this weird land, this place"
+40253 print"seems clean and organized."
+40259 di=4:return
+40310 print"You are standing in the hall of the"
+40311 print"mountain king. You must be, why else"
+40312 print"would that spooky Grieg-music be "
+40313 print"playing in the background. The exit to"
+40314 print"the north sure seems tempting now!"
+40319 di=4:return
+40320 print"You are standing in a cornfield. There"
+40321 print"are mountains to the west. To the east"
+40322 print"there is a large river. The river."
+40323 print"flows towards the sea to the south."
+40324 print"A small path leads south and north."
+40329 di=5:return
+40330 print"You are standing next to an old tower"
+40331 print"to the east. A river to the west."
+40332 print"There is a memorial of some kind here."
+40333 print"There is a beach to the south. A narrow"
+40334 print"path leads to the south and the north."
+40339 di=7:return
+40340 print"You are inside the tower."
+40341 print"The walls are covered in black soot."
+40342 print"To the east there are stairs that goes"
+40343 print"up to the top."
+40349 di=10:return
+40350 print"You're at the top of the ancient tower."
+40351 print"The smell of centuries old dragon poo"
+40352 print"makes you gag! :-&"
+40353 print"The stairs go down to the west."
+40359 di=8:return
+40410 print"You are standing on the deck of the"
+40411 print"pirate ship 'Honk If Ye're lubricious'."
+40412 print"This looks just like the ship from 'The"
+40413 print"Goonies'! Woops, did I spoil the movie"
+40414 print"for you? Sorry!"
+40415 print"You may exit the ship to the east."
+40419 di=2:return
+40420 print"You are standing in a cove that ends in"
+40421 print"the sea to the south."
+40422 print"To the west a pirate vessel named 'Honk"
+40423 print"If Ye're lubricious' is docked. A great"
+40424 print"river to the east flows into the sea."
+40429 di=12:return
+40430 print"You're walking on a very sandy beach.  "
+40431 print"The sea lies ahead of you to the south."
+40432 print"There's a river running into the ocean"
+40433 print"to the west. The beach continues to the"
+40434 print"to the east."
+40439 di=6:return
+40440 print"You are standing on a nice beach that"
+40441 print"continues to the west and east. To the"
+40442 print"south a vast ocean blocks further"
+40443 print"passage. A dark tower looms over you"
+40444 print"to the north. You can't see any"
+40445 print"entrance into the tower."
+40449 di=10:return
+40450 print"You are on a beach that ends in a cliff"
+40451 print"to the north. To the southeast the"
+40452 print"ocean stretches as far as your eyes can"
+40453 print"see."
+40459 di=8:return
+40900 data 11,12,15,1,15:rem flash colors
 41000 rem object data
 41001 rem short name, long name, y-pos, x-pos,type,strength
 41002 data "axe","a sharp axe",-1,-1,13,5
