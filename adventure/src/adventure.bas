@@ -1,4 +1,4 @@
-;#LANG "qb"
+40593;#LANG "qb"
 1 rem ******************
 2 rem * adventure game *
 3 rem * (c) 2025 oko   *
@@ -25,7 +25,7 @@
 55 cl=15:dim co$(cl,3):rem commands
 59 rem trades, texts, trade objects (actor-to-from)
 60 tl=11:dim tt$(tl,2):dim tr(tl,2)
-61 sl=13:dim si$(sl,6):dim sy(sl):dim sx(sl):rem signs
+61 sl=13:dim sy(sl):dim sx(sl):rem signs
 70 gosub 29000:rem initial colors
 75 gosub 10000:rem setup game
 80 gosub 30000:rem welcome text
@@ -215,7 +215,7 @@
 2506 if iq$<>"sign" then 2510
 2507 gosub 5400:rem is sign here?
 2508 if ii=-1 then print"There's no sign here, dummy!":return
-2509 gosub 5450:return:rem print sign
+2509 gosub 40490:return:rem print sign
 2510 gosub 6000:rem object in inventory?
 2520 if ii=-1 then return:rem nope!
 2524 rem get object # from inventory index
@@ -379,14 +379,6 @@
 5430 ii=i:return
 5440 i=i+1:if i<sl then 5420
 5445 return
-5450 rem *****************
-5451 rem * display sign  *
-5452 rem * ii=sign index *
-5453 rem *****************
-5460 for i=0 to 5
-5470 a$=si$(ii,i):if a$<>"" then print a$
-5480 next
-5490 return
 5500 rem *******************
 5501 rem * remove object   *
 5502 rem * from inventory  *
@@ -569,9 +561,7 @@
 16995 rem *****************
 16996 rem * setup 'signs' *
 16997 rem *****************
-17000 for i=0 to sl-1:read sy(i),sx(i)
-17010 for t=0 to 5:read si$(i,t):next t
-17020 next i
+17000 for i=0 to sl-1:read sy(i),sx(i):next i
 20000 return
 29000 print "{clr}{up/lo lock on}{lower case}{gry1}";n$
 29010 poke 53280,0:poke 53281,0
@@ -602,8 +592,11 @@
 33050 print"You are suddenly pulled back to your"
 33060 print"home, just in time for Jessica Fletcher!"
 33999 end
-35000 yp=ap(0,0)+1:xp=ap(0,1)+1
-35001 on yp gosub 35010,35020,35030,35040,35050
+35000 rem ********************
+35001 rem * display location *
+35003 rem ********************
+35003 yp=ap(0,0)+1:xp=ap(0,1)+1
+35004 on yp gosub 35010,35020,35030,35040,35050
 35005 return
 35010 on xp gosub 40010,40020,40030,40040,40050
 35015 return
@@ -615,8 +608,7 @@
 35045 return
 35050 on xp gosub 40410,40420,40430,40440,40450
 35055 return
-40000 rem map data: texts, exits as combined bits:
-40001 rem s=1:e=2:n=4:w=8
+40000 rem map texts
 40010 print"You are standing on a hilltop, with a "
 40011 print"vista over a beautiful landscape. To "
 40012 print"the northwest there are tall mountains."
@@ -751,7 +743,7 @@
 40431 print"The sea lies ahead of you to the south."
 40432 print"There's a river running into the ocean"
 40433 print"to the west. The beach continues to the"
-40434 print"to the east."
+40434 print"east."
 40439 di=6:return
 40440 print"You are standing on a nice beach that"
 40441 print"continues to the west and east. To the"
@@ -765,6 +757,87 @@
 40452 print"ocean stretches as far as your eyes can"
 40453 print"see."
 40459 di=8:return
+40490 rem ****************
+40491 rem * display sign *
+40492 rem ****************
+40493 if ii>9 then 40497
+40495 on ii+1 gosub 40500,40510,40520,40530,40540,40550,40560,40570,40580,40590
+40496 return
+40497 on ii-9 gosub 40600,40610,40620
+40498 return
+40500 print"Welcome to Zorkadia, dear adventurer!"
+40501 print"You have been summoned by Ragnar, the"
+40502 print"witch-king who needs your help to find"
+40503 print"his treasures, stolen by nasty thieves!"
+40504 print"When you have banked all four treasures"
+40505 print"you may return home! First class, even!"
+40506 return
+40510 print"Welcome to the valley of the dead!"
+40511 print"I'd turn back if I were you!"
+40512 print"This place ain't for the weak hearted!"
+40513 print"Mohaha! Signed Ragnvald"
+40516 return
+40520 print"Welcome to Scott's Woods. Poaching,"
+40521 print"illegal logging, and magic mushroom"
+40522 print"picking will be reported to the"
+40523 print"sheriff. Warning! Magic mushrooms are"
+40524 print"{blk}literally{gry1} magical, as Joe Jackson"
+40525 print"could've attested to, if he hadn't been turned into a newt!"
+40526 return
+40530 print"Warning! Do not go north! You will"
+40531 print"enter the Valley of the Dead!"
+40532 print"And that is a really, {blk}really{gry1} bad idea!"
+40536 return
+40540 print"* Bank of Zorkadia *"
+40541 print"Trusted by businesses, pirates and"
+40542 print"witch-kings since the year of the toad"
+40546 return
+40550 print"Did you remember to bring a lamp?"
+40551 print"Of course you did, you wouldn't be able"
+40552 print"to read this sign if you didn't!,"
+40553 print"Stupid, stupid, stupid! I always make"
+40554 print"these mistakes. No wonder Liz got that"
+40555 print"CastleMart-gig instead of me!"
+40556 return
+40560 print"Welcome to Will's colossal cave!"
+40561 print"Beware of trolls! Lamp recommended!'"
+40562 print"Get your lamps at Honest Trader Jack's!"
+40563 print"Trading since the year of the fallen"
+40564 print"duck!'"
+40566 return
+40570 print"Welcome to the town of Bob!"
+40571 print"The home of several stores with great"
+40572 print"reviews on Adventure's Travel book!"
+40576 return
+40580 print"Welcome to the signmakers store!"
+40581 print"We make signs for all occasions!"
+40582 print"Our lovely associate Grete will be"
+40583 print"happy to sign you up for membership"
+40584 print"in the customer club - for amazing"
+40585 print"discounts!"
+40586 return
+40590 print"Deposit your treasures here for safe-"
+40591 print"keeping. Aaaare you a pirate? This week"
+40592 print"you get half price on safe deposit box"
+40593 print"rentals! {yel}New customers get a free spade!{gry1}"
+40594 print"Unearth your treasures, bring 'em here!"
+40596 return
+40600 print"Here lies the remains of the"
+40601 print"unfortunate knight Waldemar. He forgot"
+40602 print"to put on his armor before he faced"
+40603 print"{red}Flammor{gry1}, the mighty dragon."
+40604 print"He won't be doing that again!"
+40606 return
+40610 print"'tis the Pirates Cove. Stay away unless"
+40611 print"you're a member of captain Bloodnose's"
+40612 print"crew. Or you're the ale and biscuit"
+40613 print"delivery guy."
+40616 return
+40620 print"Welcome to Sandy beach!"
+40621 print"Please do not litter, sing loud ballads"
+40622 print"or drink excessive amounts of ale!"
+40623 print"Keep your werewolf on a leash!"
+40626 return
 40900 data 11,12,15,1,15:rem flash colors
 41000 rem object data
 41001 rem short name, long name, y-pos, x-pos,type,strength
@@ -870,64 +943,5 @@
 44091 data "fire me after all!",9,27,26
 44100 data "One refreshing beer coming up! Enjoy!"
 44101 data "But keep your hands off my daughter!",5,5,16
-44999 rem sign data
-45000 data 0,0,"Welcome to Zorkadia, dear adventurer!"
-45001 data "You have been summoned by Ragnar, the"
-45002 data "witch-king who needs your help to find"
-45003 data "his treasures, stolen by nasty thieves!"
-45004 data "When you have banked all four treasures"
-45005 data "you may return home! First class, even!"
-45010 data 0,2,"Welcome to the valley of the dead!"
-45011 data "I'd turn back if I were you!"
-45012 data "This place ain't for the weak hearted!"
-45013 data "Mohaha! Signed Ragnvald","",""
-45020 data 1,1,"Welcome to Scott's Woods. Poaching,"
-45021 data "illegal logging, and magic mushroom"
-45022 data "picking will be reported to the"
-45023 data "sheriff. Warning! Magic mushrooms are"
-45024 data "{blk}literally{gry1} magical, as Joe Jackson"
-45025 data "could've attested to, if he hadn't been turned into a newt!"
-45030 data 1,2,"Warning! Do not go north! You will"
-45031 data "enter the Valley of the Dead!"
-45032 data "And that is a really, {blk}really{gry1} bad idea!","","",""
-45040 data 1,4,"* Bank of Zorkadia *"
-45041 data "Trusted by businesses, pirates and"
-45042 data "witch-kings since the year of the toad","","",""
-45050 data 2,0,"Did you remember to bring a lamp?"
-45051 data "Of course you did, you wouldn't be able"
-45052 data "to read this sign if you didn't!,"
-45053 data "Stupid, stupid, stupid! I always make"
-45054 data "these mistakes. No wonder Liz got that"
-45055 data "CastleMart-gig instead of me!"
-45060 data 2,1,"Welcome to Will's colossal cave!"
-45061 data "Beware of trolls! Lamp recommended!'"
-45062 data "Get your lamps at Honest Trader Jack's!"
-45063 data "Trading since the year of the fallen"
-45064 data "duck!'",""
-45070 data 2,2,"Welcome to the town of Bob!"
-45071 data "The home of several stores with great"
-45072 data "reviews on Adventure's Travel book!","","",""
-45080 data 2,3,"Welcome to the signmakers store!"
-45081 data "We make signs for all occasions!"
-45082 data "Our lovely associate Grete will be"
-45083 data "happy to sign you up for membership"
-45084 data "in the customer club - for amazing"
-45085 data "discounts!"
-45090 data 2,4,"Deposit your treasures here for safe-"
-45091 data "keeping. Aaaare you a pirate? This week"
-45092 data "you get half price on safe deposit box"
-45093 data "rentals! {yel}New customers get a free spade!{gry1}"
-45094 data "Unearth your treasures, bring 'em here!",""
-45100 data 3,2,"Here lies the remains of the"
-45101 data "unfortunate knight Waldemar. He forgot"
-45102 data "to put on his armor before he faced"
-45103 data "{red}Flammor{gry1}, the mighty dragon."
-45104 data "He won't be doing that again!",""
-45110 data 4,1,"'tis the Pirates Cove. Stay away unless"
-45111 data "you're a member of captain Bloodnose's"
-45112 data "crew. Or you're the ale and biscuit"
-45113 data "delivery guy.","",""
-45120 data 4,2,"Welcome to Sandy beach!"
-45121 data "Please do not litter, sing loud ballads"
-45122 data "or drink excessive amounts of ale!"
-45123 data "Keep your werewolf on a leash!","",""
+44999 rem sign data (positions)
+45000 data 0,0, 0,2, 1,1, 1,2, 1,4, 2,0, 2,1, 2,2, 2,3, 2,4, 3,2, 4,1, 4,2
