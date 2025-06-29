@@ -1,4 +1,4 @@
-40593;#LANG "qb"
+;#LANG "qb"
 1 rem ******************
 2 rem * adventure game *
 3 rem * (c) 2025 oko   *
