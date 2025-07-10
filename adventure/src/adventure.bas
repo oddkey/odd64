@@ -125,7 +125,7 @@
 1960 op(o,0)=ap(0,0):op(o,1)=ap(0,1)
 1970 rem remove object from inventory
 1980 gosub 5500
-1990 print"You dropped the "+ob$(o,1)
+1990 print"You dropped "+ob$(o,1)
 1999 return
 2000 rem ******************
 2001 rem * "give" command *
@@ -624,7 +624,7 @@
 40024 print"in the north towards the sea far to the"
 40025 print"south, blocking passage to the east."
 40029 di=9:return
-40030 print"You are in the valley of the dead! A  "
+40030 print"You are in the valley of the dead!"
 40031 print"The valley truly is one spooky place!"
 40032 print"You feel eyes peering at you from"
 40033 print"behind large boulders that look like"
