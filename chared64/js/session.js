@@ -6,6 +6,9 @@ export function createSession(project) {
     paintRole: "foreground",
     tileTool: "char",
     tileShape: "pen",
+    tileCursor: null,
+    tileSelection: null,
+    screenClipboard: null,
     tileInk: 14,
     lastSurface: "editor",
     fitCharacters: false,
@@ -41,6 +44,8 @@ export function createSession(project) {
     replaceProject(next) {
       current = next;
       ui.dirty = false;
+      ui.tileSelection = null;
+      ui.tileCursor = ui.tileShape === "type" ? { x: 0, y: 0, homeX: 0 } : null;
       ui.paintRole = next.mode === "multi" ? "cell" : "foreground";
       ui.tileInk = next.mode === "multi" ? next.colors.multiCell : next.colors.foreground;
       emit("project");

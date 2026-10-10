@@ -250,6 +250,8 @@ canvas { image-rendering: pixelated; display: block; }
   overflow-y: hidden;
   touch-action: pan-x pan-y;
 }
+.tile-scroll.selecting { cursor: crosshair; }
+.tile-scroll.typing { cursor: text; }
 #tile-spacer { pointer-events: none; }
 .tile-frame > canvas {
   position: absolute;

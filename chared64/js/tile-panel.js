@@ -1,5 +1,5 @@
 import { bindTap, touchUsesTap } from "./gesture.js";
-import { eachStampCell, pushTileUndo, selectionRect, undoTile } from "./project.js";
+import { eachStampCell, pushTileUndo, selectionRect, tileRectFromCorners, undoTile } from "./project.js";
 import { displayInk, drawGlyph, prepareCanvas } from "./render.js";
 
 export function mountTiles(session) {
@@ -95,6 +95,17 @@ export function mountTiles(session) {
       session.emit("tiles");
       return;
     }
+    if (stroke.shape === "select" && stroke.current) {
+      session.ui.tileSelection = tileRectFromCorners(
+        stroke.origin,
+        stroke.current,
+        project.tileWidth,
+        project.tileHeight,
+      );
+      stroke = null;
+      session.emit("tiles");
+      return;
+    }
     if (stroke.shape === "area" && stroke.current) {
       const x0 = Math.min(stroke.origin.x, stroke.current.x);
       const x1 = Math.max(stroke.origin.x, stroke.current.x);
@@ -115,9 +126,19 @@ export function mountTiles(session) {
     session.emit("tiles");
   }
 
+  function placeCursor(point) {
+    session.ui.tileCursor = { x: point.x, y: point.y, homeX: point.x };
+    session.ui.lastSurface = "tile";
+    session.emit("tiles");
+  }
+
   function startStroke(event) {
     const point = cellAt(event);
     if (!inBounds(session.project, point)) return false;
+    if (session.ui.tileShape === "type") {
+      placeCursor(point);
+      return false;
+    }
     stroke = {
       shape: session.ui.tileShape,
       origin: point,
@@ -232,7 +253,7 @@ export function mountTiles(session) {
     if (!stroke) return;
     const point = cellAt(event);
     if (!point) return;
-    if (stroke.shape === "area") {
+    if (stroke.shape === "area" || stroke.shape === "select") {
       stroke.current = point;
       drawOverlay();
       return;
@@ -271,7 +292,19 @@ export function mountTiles(session) {
   window.addEventListener("scroll", scheduleDraw, { passive: true });
 
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && stroke) finish(false);
+    if (event.key !== "Escape") return;
+    if (stroke) {
+      finish(false);
+      return;
+    }
+    if (session.ui.tileShape === "type" && session.ui.tileCursor) {
+      session.ui.tileCursor = null;
+      session.emit("tiles");
+      return;
+    }
+    if (!session.ui.tileSelection) return;
+    session.ui.tileSelection = null;
+    session.emit("tiles");
   });
 
   new ResizeObserver(scheduleDraw).observe(frame);
@@ -303,30 +336,76 @@ export function mountTiles(session) {
     layer.style.left = "0";
   }
 
-  function drawOverlay() {
+  let caretOn = true;
+  window.setInterval(() => {
+    if (session.ui.tileShape !== "type" || !session.ui.tileCursor) return;
+    caretOn = !caretOn;
+    drawOverlay(true);
+  }, 530);
+
+  function revealCell(x, y) {
+    const size = cellSize();
+    const left = x * size;
+    const right = left + size;
+    if (left < scroller.scrollLeft) scroller.scrollLeft = left;
+    else if (right > scroller.scrollLeft + scroller.clientWidth) {
+      scroller.scrollLeft = right - scroller.clientWidth;
+    }
+    const top = scroller.getBoundingClientRect().top + y * size;
+    const bottom = top + size;
+    if (top < 0) window.scrollBy(0, top - 8);
+    else if (bottom > window.innerHeight) window.scrollBy(0, bottom - window.innerHeight + 8);
+  }
+
+  function drawOverlay(fromBlink = false) {
     const band = visibleBand();
     if (!band) return;
     placeLayer(overlay, band);
     const ctx = prepareCanvas(overlay, band.width, band.height);
     ctx.clearRect(0, 0, band.width, band.height);
-    if (!stroke || stroke.shape !== "area" || !stroke.current) return;
     const size = cellSize();
-    const x0 = Math.min(stroke.origin.x, stroke.current.x);
-    const y0 = Math.min(stroke.origin.y, stroke.current.y);
-    const w = Math.abs(stroke.origin.x - stroke.current.x) + 1;
-    const h = Math.abs(stroke.origin.y - stroke.current.y) + 1;
+    if (!fromBlink) caretOn = true;
     ctx.save();
     ctx.translate(-band.left, -band.top);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
-    ctx.strokeStyle = "#f2f5fb";
-    ctx.lineWidth = 1;
-    ctx.fillRect(x0 * size, y0 * size, w * size, h * size);
-    ctx.strokeRect(x0 * size + 0.5, y0 * size + 0.5, w * size - 1, h * size - 1);
+    if (stroke && stroke.shape === "area" && stroke.current) {
+      const x0 = Math.min(stroke.origin.x, stroke.current.x);
+      const y0 = Math.min(stroke.origin.y, stroke.current.y);
+      const w = Math.abs(stroke.origin.x - stroke.current.x) + 1;
+      const h = Math.abs(stroke.origin.y - stroke.current.y) + 1;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+      ctx.strokeStyle = "#f2f5fb";
+      ctx.lineWidth = 1;
+      ctx.fillRect(x0 * size, y0 * size, w * size, h * size);
+      ctx.strokeRect(x0 * size + 0.5, y0 * size + 0.5, w * size - 1, h * size - 1);
+    } else {
+      const rect = stroke && stroke.shape === "select" && stroke.current
+        ? tileRectFromCorners(stroke.origin, stroke.current, session.project.tileWidth, session.project.tileHeight)
+        : session.ui.tileSelection;
+      if (rect) {
+        ctx.fillStyle = "rgba(142, 176, 255, 0.22)";
+        ctx.strokeStyle = "#8eb0ff";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.fillRect(rect.x * size, rect.y * size, rect.width * size, rect.height * size);
+        ctx.strokeRect(rect.x * size + 0.5, rect.y * size + 0.5, rect.width * size - 1, rect.height * size - 1);
+        ctx.setLineDash([]);
+      }
+    }
+    const cursor = session.ui.tileShape === "type" ? session.ui.tileCursor : null;
+    if (cursor && caretOn) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+      ctx.strokeStyle = "#f4f7ff";
+      ctx.lineWidth = 1;
+      ctx.fillRect(cursor.x * size, cursor.y * size, size, size);
+      ctx.strokeRect(cursor.x * size + 0.5, cursor.y * size + 0.5, size - 1, size - 1);
+    }
     ctx.restore();
   }
 
   function draw() {
     const project = session.project;
+    scroller.classList.toggle("selecting", session.ui.tileShape === "select");
+    scroller.classList.toggle("typing", session.ui.tileShape === "type");
     const size = cellSize();
     spacer.style.width = `${project.tileWidth * size}px`;
     spacer.style.height = `${screenExtent(project, size)}px`;
@@ -366,5 +445,5 @@ export function mountTiles(session) {
     ctx.restore();
   }
 
-  return { draw, drawOverlay };
+  return { draw, drawOverlay, revealCell };
 }

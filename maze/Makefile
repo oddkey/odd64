@@ -2,7 +2,7 @@ CL65 ?= cl65
 VICE ?= flatpak run --command=x64sc net.sf.VICE
 
 TARGET = maze.prg
-SRCS   = src/main.c src/scroll.s src/sprites.s src/actors.s src/sound.s src/bomb.s
+SRCS   = src/main.c src/scroll.s src/sprites.s src/actors.s src/sound.s src/bomb.s src/title_screen.s
 
 .PHONY: all clean run
 

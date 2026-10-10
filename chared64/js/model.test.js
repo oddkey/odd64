@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseProject, parseProjectText, serializeProject } from "./files.js";
 import {
+  clearTileSelection,
   colorKeyForRole,
+  copyTileSelection,
   createBlankProject,
   fitZoom,
   createFromRom,
@@ -10,13 +12,19 @@ import {
   getPixel,
   markCopy,
   parseGlyphClipboard,
+  parseScreenClipboard,
   pasteCopy,
+  pasteTileSelection,
   rectFromCorners,
   resizeTiles,
+  screenCodeForChar,
   selectionRect,
   setPixel,
+  tileRectFromCorners,
+  typeTileText,
   undoGlyph,
   undoTile,
+  writeTileCell,
 } from "./project.js";
 
 test("custom zoom fits the width in whole device pixels", () => {
@@ -229,6 +237,92 @@ test("a stamp clips to the screen and to an optional area", () => {
     { x: 5, y: 5, char: 0 },
     { x: 5, y: 6, char: 16 },
   ]);
+});
+
+test("a screen selection copies, cuts, and pastes cells", () => {
+  const project = createBlankProject();
+  const rect = tileRectFromCorners({ x: 1, y: 2 }, { x: 2, y: 2 }, project.tileWidth, project.tileHeight);
+  assert.deepEqual(rect, { x: 1, y: 2, width: 2, height: 1 });
+  project.tileChars[2 * 40 + 1] = 65;
+  project.tileColors[2 * 40 + 1] = 3;
+  project.tileChars[2 * 40 + 2] = 66;
+  project.tileColors[2 * 40 + 2] = 4;
+  const clip = parseScreenClipboard(JSON.stringify(copyTileSelection(project, rect)));
+  assert.deepEqual(clip.chars, [65, 66]);
+  assert.deepEqual(clip.colors, [3, 4]);
+  assert.equal(clearTileSelection(project, rect), true);
+  assert.equal(project.tileChars[2 * 40 + 1], 32);
+  assert.equal(project.tileColors[2 * 40 + 1], 14);
+  assert.equal(undoTile(project), true);
+  assert.equal(project.tileChars[2 * 40 + 1], 65);
+  assert.equal(pasteTileSelection(project, { x: 38, y: 0 }, clip), true);
+  assert.equal(project.tileChars[38], 65);
+  assert.equal(project.tileColors[38], 3);
+  assert.equal(project.tileChars[39], 66);
+  assert.equal(project.tileChars[40], 32);
+  assert.equal(parseScreenClipboard({ kind: "chared64-glyphs" }), null);
+  assert.equal(pasteTileSelection(project, { x: 0, y: 0 }, { kind: "nope" }), false);
+});
+
+test("typed letters use the screen codes of the active character set", () => {
+  assert.equal(screenCodeForChar("A", "upper"), 1);
+  assert.equal(screenCodeForChar("a", "upper"), 1);
+  assert.equal(screenCodeForChar("Z", "upper"), 26);
+  assert.equal(screenCodeForChar("@", "upper"), 0);
+  assert.equal(screenCodeForChar(" ", "upper"), 32);
+  assert.equal(screenCodeForChar("?", "upper"), 63);
+  assert.equal(screenCodeForChar("[", "upper"), 27);
+  assert.equal(screenCodeForChar("£", "upper"), 28);
+  assert.equal(screenCodeForChar("]", "upper"), 29);
+  assert.equal(screenCodeForChar("↑", "upper"), 30);
+  assert.equal(screenCodeForChar("←", "upper"), 31);
+  assert.equal(screenCodeForChar("π", "upper"), 126);
+  assert.equal(screenCodeForChar("a", "lower"), 1);
+  assert.equal(screenCodeForChar("A", "lower"), 65);
+  assert.equal(screenCodeForChar("z", "lower"), 26);
+  assert.equal(screenCodeForChar("Z", "lower"), 90);
+  assert.equal(screenCodeForChar("€", "upper"), null);
+  assert.equal(screenCodeForChar("Ab", "upper"), null);
+});
+
+test("typing text overwrites cells, wraps, and returns to the clicked column", () => {
+  const project = createBlankProject();
+  resizeTiles(project, 6, 3);
+  const first = typeTileText(project, { x: 1, y: 0, homeX: 1 }, "Ab\nZ", 14);
+  assert.equal(first.changed, true);
+  assert.deepEqual(first.cursor, { x: 2, y: 1, homeX: 1 });
+  assert.equal(project.tileChars[1], 1);
+  assert.equal(project.tileChars[2], 2);
+  assert.equal(project.tileChars[6 + 1], 26);
+  assert.equal(project.tileColors[6 + 1], 14);
+  assert.equal(undoTile(project), true);
+  assert.equal(project.tileChars[1], 32);
+  assert.equal(project.tileChars[6 + 1], 32);
+  assert.equal(writeTileCell(project, 0, 0, 32, 14), false);
+
+  const wrapped = typeTileText(project, { x: 4, y: 0, homeX: 4 }, "WXYZ", 14);
+  assert.deepEqual(wrapped.cursor, { x: 2, y: 1, homeX: 4 });
+  assert.equal(project.tileChars[4], 23);
+  assert.equal(project.tileChars[5], 24);
+  assert.equal(project.tileChars[6], 25);
+  assert.equal(project.tileChars[7], 26);
+
+  const line = typeTileText(project, { x: 1, y: 2, homeX: 1 }, "A\r\nB", 3);
+  assert.deepEqual(line.cursor, { x: 3, y: 2, homeX: 1 });
+  assert.equal(project.tileChars[2 * 6 + 1], 1);
+  assert.equal(project.tileChars[2 * 6 + 2], 2);
+
+  project.activeSet = "lower";
+  project.mode = "multi";
+  const lower = typeTileText(project, { x: 0, y: 2, homeX: 0 }, "Ab", 14);
+  assert.equal(project.tileChars[12], 65);
+  assert.equal(project.tileChars[13], 2);
+  assert.equal(project.tileColors[12], 6);
+  assert.equal(lower.cursor.x, 2);
+
+  const skipped = typeTileText(project, { x: 0, y: 0, homeX: 0 }, "~~", 14);
+  assert.equal(skipped.changed, false);
+  assert.deepEqual(skipped.cursor, { x: 0, y: 0, homeX: 0 });
 });
 
 test("tile undo restores the previous cells", () => {

@@ -4,19 +4,28 @@ import {
   EDITOR_ZOOMS,
   MAP_ZOOMS,
   fitZoom,
+  clearTileSelection,
   colorKeyForRole,
+  copyTileSelection,
   createBlankProject,
   createFromRom,
+  DEFAULTS,
   fileStem,
   formatCode,
   markCopy,
   parseGlyphClipboard,
+  parseScreenClipboard,
   pasteCopy,
+  pasteTileSelection,
   resizeTiles,
+  screenCodeForChar,
   selectionRect,
+  typeTileText,
   undoGlyph,
   undoTile,
+  writeTileCell,
   CLIPBOARD_STORAGE_KEY,
+  SCREEN_CLIPBOARD_STORAGE_KEY,
   GLYPH_COUNT,
   MAP_COLUMNS,
   MAP_ROWS,
@@ -136,6 +145,11 @@ function syncChrome() {
   undoGlyphButton.disabled = project.glyphUndo.length === 0;
   undoTileButton.disabled = project.tileUndo.length === 0;
   pasteButton.disabled = !pasteClip();
+  const tileSelection = session.ui.tileSelection;
+  $("tile-select-label").textContent = tileSelection ? `${tileSelection.width}×${tileSelection.height}` : "";
+  $("tile-cut").disabled = !tileSelection;
+  $("tile-copy").disabled = !tileSelection;
+  $("tile-paste").disabled = !tileSelection || !session.ui.screenClipboard;
   zoomMap.value = session.ui.fitCharacters ? "custom" : String(project.zoom.characters);
   zoomEditor.value = session.ui.fitEditor ? "custom" : String(project.zoom.editor);
   zoomTile.value = String(project.zoom.tiles);
@@ -331,6 +345,92 @@ function copySelection() {
   setStatus(`Copied ${formatCopy(clip)}.`);
 }
 
+function writeScreenClipboard(clip) {
+  const text = JSON.stringify(clip);
+  try {
+    localStorage.setItem(SCREEN_CLIPBOARD_STORAGE_KEY, text);
+  } catch {
+    /* private mode */
+  }
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+}
+
+async function readScreenClipboard() {
+  if (navigator.clipboard?.readText) {
+    try {
+      const parsed = parseScreenClipboard(await navigator.clipboard.readText());
+      if (parsed) return parsed;
+    } catch {
+      /* permission or empty */
+    }
+  }
+  try {
+    return parseScreenClipboard(localStorage.getItem(SCREEN_CLIPBOARD_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function screenSelection() {
+  const rect = session.ui.tileSelection;
+  if (rect) return rect;
+  setStatus("Select a rectangle on the screen first.", true);
+  return null;
+}
+
+function rememberScreenClip(clip) {
+  session.ui.screenClipboard = clip;
+  writeScreenClipboard(clip);
+  session.emit("chrome");
+}
+
+function copyScreen() {
+  const rect = screenSelection();
+  if (!rect) return;
+  rememberScreenClip(copyTileSelection(session.project, rect));
+  setStatus(`Copied ${rect.width}×${rect.height} from the screen.`);
+}
+
+function cutScreen() {
+  const rect = screenSelection();
+  if (!rect) return;
+  rememberScreenClip(copyTileSelection(session.project, rect));
+  runEdit("tiles", (project) => clearTileSelection(project, rect));
+  setStatus(`Cut ${rect.width}×${rect.height} from the screen.`);
+}
+
+async function pasteScreen() {
+  const rect = screenSelection();
+  if (!rect) return;
+  const clip = (await readScreenClipboard()) || session.ui.screenClipboard;
+  if (!clip) {
+    setStatus("Nothing to paste.", true);
+    return;
+  }
+  rememberScreenClip(clip);
+  const origin = { x: rect.x, y: rect.y };
+  if (!runEdit("tiles", (project) => pasteTileSelection(project, origin, clip))) {
+    setStatus("Paste made no change.");
+    return;
+  }
+  const source = parseScreenClipboard(clip);
+  session.ui.tileSelection = {
+    x: origin.x,
+    y: origin.y,
+    width: Math.min(source.width, session.project.tileWidth - origin.x),
+    height: Math.min(source.height, session.project.tileHeight - origin.y),
+  };
+  session.emit("tiles");
+  const pasted = session.ui.tileSelection;
+  setStatus(`Pasted ${pasted.width}×${pasted.height}.`);
+}
+
+function screenKeys() {
+  return session.ui.lastSurface === "tile" && (session.ui.tileShape === "select" || session.ui.tileSelection);
+}
+
 async function pasteSelection() {
   const clip = (await readSharedClipboard()) || pasteClip();
   if (!clip) {
@@ -382,10 +482,20 @@ try {
 } catch {
   session.ui.clipboard = null;
 }
+try {
+  session.ui.screenClipboard = parseScreenClipboard(localStorage.getItem(SCREEN_CLIPBOARD_STORAGE_KEY));
+} catch {
+  session.ui.screenClipboard = null;
+}
 
 window.addEventListener("storage", (event) => {
-  if (event.key !== CLIPBOARD_STORAGE_KEY) return;
-  session.ui.clipboard = parseGlyphClipboard(event.newValue);
+  if (event.key === CLIPBOARD_STORAGE_KEY) {
+    session.ui.clipboard = parseGlyphClipboard(event.newValue);
+  } else if (event.key === SCREEN_CLIPBOARD_STORAGE_KEY) {
+    session.ui.screenClipboard = parseScreenClipboard(event.newValue);
+  } else {
+    return;
+  }
   session.emit("chrome");
 });
 
@@ -438,6 +548,13 @@ $("tile-shape").addEventListener("click", (event) => {
   if (!value) return;
   session.ui.tileShape = value;
   session.ui.lastSurface = "tile";
+  if (value === "type") {
+    if (!session.ui.tileCursor) session.ui.tileCursor = { x: 0, y: 0, homeX: 0 };
+    tiles.revealCell(session.ui.tileCursor.x, session.ui.tileCursor.y);
+    setStatus("Click a cell, then type. Enter continues on the next line at that column.");
+    session.emit("tiles");
+    return;
+  }
   session.emit("chrome");
 });
 
@@ -503,6 +620,12 @@ $("paste").addEventListener("click", () => {
   pasteSelection();
 });
 
+$("tile-cut").addEventListener("click", () => cutScreen());
+$("tile-copy").addEventListener("click", () => copyScreen());
+$("tile-paste").addEventListener("click", () => {
+  pasteScreen();
+});
+
 undoGlyphButton.addEventListener("click", () => runEdit("pixels", undoGlyph));
 undoTileButton.addEventListener("click", () => runEdit("tiles", undoTile));
 
@@ -511,31 +634,206 @@ $("tile-resize").addEventListener("click", () => {
   const height = Number(tileH.value);
   try {
     const changed = runEdit("tiles", (project) => resizeTiles(project, width, height));
+    const sel = session.ui.tileSelection;
+    let cursorMoved = false;
+    if (sel && (sel.x + sel.width > width || sel.y + sel.height > height)) {
+      session.ui.tileSelection = null;
+      cursorMoved = true;
+    }
+    const cursor = session.ui.tileCursor;
+    if (cursor && (cursor.x >= width || cursor.y >= height)) {
+      session.ui.tileCursor = null;
+      cursorMoved = true;
+    } else if (cursor && cursor.homeX >= width) {
+      session.ui.tileCursor = { ...cursor, homeX: width - 1 };
+      cursorMoved = true;
+    }
+    if (cursorMoved) session.emit("tiles");
     setStatus(changed ? `Screen is ${width}×${height}.` : "Screen size is unchanged.");
   } catch (error) {
     setStatus(error.message, true);
   }
 });
 
+function commandKey(event) {
+  return (event.ctrlKey || event.metaKey) && !event.altKey;
+}
+
+function typeCursorActive() {
+  return session.ui.tileShape === "type" && session.ui.tileCursor && session.ui.lastSurface === "tile";
+}
+
+function applyTyped(text) {
+  const before = session.ui.tileCursor;
+  runEdit("tiles", (project) => {
+    const result = typeTileText(project, before, text, session.ui.tileInk);
+    session.ui.tileCursor = result.cursor;
+    tiles.revealCell(result.cursor.x, result.cursor.y);
+    return result.changed;
+  });
+}
+
+function backspaceTyped() {
+  const cursor = session.ui.tileCursor;
+  const project = session.project;
+  let x = cursor.x;
+  let y = cursor.y;
+  if (x > 0) x -= 1;
+  else if (y > 0) {
+    y -= 1;
+    x = project.tileWidth - 1;
+  } else return;
+  session.ui.tileCursor = { x, y, homeX: cursor.homeX };
+  tiles.revealCell(x, y);
+  runEdit("tiles", (screen) => writeTileCell(screen, x, y, DEFAULTS.fillChar, session.ui.tileInk));
+}
+
+function deleteTyped() {
+  const { x, y } = session.ui.tileCursor;
+  runEdit("tiles", (project) => writeTileCell(project, x, y, DEFAULTS.fillChar, session.ui.tileInk));
+}
+
+function newlineTyped() {
+  const cursor = session.ui.tileCursor;
+  const project = session.project;
+  if (cursor.y + 1 >= project.tileHeight) return;
+  const next = {
+    x: Math.min(Math.max(0, cursor.homeX), project.tileWidth - 1),
+    y: cursor.y + 1,
+    homeX: cursor.homeX,
+  };
+  session.ui.tileCursor = next;
+  tiles.revealCell(next.x, next.y);
+  session.emit("tiles");
+}
+
+function moveTypedCursor(key) {
+  const cursor = session.ui.tileCursor;
+  const project = session.project;
+  let { x, y, homeX } = cursor;
+  if (key === "ArrowLeft") x = Math.max(0, x - 1);
+  else if (key === "ArrowRight") x = Math.min(project.tileWidth - 1, x + 1);
+  else if (key === "ArrowUp") y = Math.max(0, y - 1);
+  else if (key === "ArrowDown") y = Math.min(project.tileHeight - 1, y + 1);
+  else if (key === "Home") x = 0;
+  else if (key === "End") x = project.tileWidth - 1;
+  else return false;
+  if (key !== "ArrowUp" && key !== "ArrowDown") homeX = x;
+  session.ui.tileCursor = { x, y, homeX };
+  tiles.revealCell(x, y);
+  session.emit("tiles");
+  return true;
+}
+
+function retreatTypeCursor(entry) {
+  if (!typeCursorActive() || !entry || entry.length !== 1) return;
+  const project = session.project;
+  const cell = entry[0].i;
+  const x = cell % project.tileWidth;
+  const y = Math.floor(cell / project.tileWidth);
+  const cursor = session.ui.tileCursor;
+  const wrapped = cursor.x === 0 && cursor.y === y + 1 && x === project.tileWidth - 1;
+  const beside = cursor.y === y && (cursor.x === x || cursor.x === x + 1);
+  if (!wrapped && !beside) return;
+  session.ui.tileCursor = { ...cursor, x, y };
+  tiles.revealCell(x, y);
+  session.emit("tiles");
+}
+
+async function pasteTypedText() {
+  let text = "";
+  try {
+    if (!navigator.clipboard?.readText) {
+      setStatus("This browser cannot read clipboard text.", true);
+      return;
+    }
+    text = await navigator.clipboard.readText();
+  } catch {
+    setStatus("The browser blocked clipboard reading.", true);
+    return;
+  }
+  if (!typeCursorActive()) return;
+  const screen = parseScreenClipboard(text);
+  if (screen) {
+    const origin = { x: session.ui.tileCursor.x, y: session.ui.tileCursor.y };
+    if (!runEdit("tiles", (project) => pasteTileSelection(project, origin, screen))) {
+      setStatus("Paste made no change.");
+      return;
+    }
+    setStatus(`Pasted ${screen.width}×${screen.height}.`);
+    return;
+  }
+  const typeable = [...text].some((ch) => (
+    ch === "\n" || ch === "\r" || screenCodeForChar(ch, session.project.activeSet) != null
+  ));
+  if (!typeable) {
+    setStatus("Nothing to type.", true);
+    return;
+  }
+  applyTyped(text);
+}
+
 window.addEventListener("keydown", (event) => {
   const tag = event.target.tagName;
   if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
   const key = event.key.toLowerCase();
-  if ((event.ctrlKey || event.metaKey) && key === "z" && !event.shiftKey) {
+  const command = commandKey(event);
+  if (command && key === "z" && !event.shiftKey) {
     event.preventDefault();
-    if (session.ui.lastSurface === "tile") runEdit("tiles", undoTile);
-    else runEdit("pixels", undoGlyph);
+    if (session.ui.lastSurface === "tile") {
+      const entry = session.project.tileUndo.at(-1);
+      runEdit("tiles", undoTile);
+      retreatTypeCursor(entry);
+    } else runEdit("pixels", undoGlyph);
     return;
   }
-  if ((event.ctrlKey || event.metaKey) && key === "c") {
+  if (command && key === "v" && typeCursorActive()) {
     event.preventDefault();
-    copySelection();
+    pasteTypedText();
     return;
   }
-  if ((event.ctrlKey || event.metaKey) && key === "v") {
+  if (command && key === "x" && screenKeys()) {
     event.preventDefault();
-    pasteSelection();
+    cutScreen();
     return;
+  }
+  if (command && key === "c") {
+    event.preventDefault();
+    if (screenKeys()) copyScreen();
+    else copySelection();
+    return;
+  }
+  if (command && key === "v") {
+    event.preventDefault();
+    if (screenKeys()) pasteScreen();
+    else pasteSelection();
+    return;
+  }
+  if (typeCursorActive() && !command && !event.isComposing) {
+    if (moveTypedCursor(event.key)) {
+      event.preventDefault();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      newlineTyped();
+      return;
+    }
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      backspaceTyped();
+      return;
+    }
+    if (event.key === "Delete") {
+      event.preventDefault();
+      deleteTyped();
+      return;
+    }
+    if (screenCodeForChar(event.key, session.project.activeSet) != null) {
+      event.preventDefault();
+      applyTyped(event.key);
+      return;
+    }
   }
   const project = session.project;
   const next = moveMapIndex(project.selected, event.key, event.shiftKey);

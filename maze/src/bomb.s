@@ -7,7 +7,7 @@
 .import _ghost_freeze
 .import _bomb_x, _bomb_y, _bomb_phase, _bomb_timer, _bomb_mask, _bombs_left
 .import _map, _player_x, _player_y, _ghost_x, _ghost_y
-.import _life, _outcome, _pickups_left, _gem_x, _gem_y
+.import _life, _outcome, _pickups_left, _gem_x, _gem_y, _score
 .import _origin_x, _seam_y, _color_a, _color_b
 .import _bomb_status
 
@@ -16,6 +16,7 @@
 .export _button_down
 .export _bomb_tick
 .export _bomb_reset
+.export _sound_boom
 
 .segment "BSS"
 
@@ -94,7 +95,7 @@ _bomb_tick:
         bcc @loop
         lda exploded
         beq @snd
-        jsr boom
+        jsr _sound_boom
         lda #20
         sta boom_t
         lda #0
@@ -338,8 +339,12 @@ color_of:
         lda #7
         rts
 @sp:    cmp #32
-        bne @g
+        bne @heart
         lda #0
+        rts
+@heart: cmp #83
+        bne @g
+        lda #2
         rts
 @g:     lda #11
         rts
@@ -476,6 +481,13 @@ explode:
         sta _ghost_freeze+1,x
         lda #0
         sta $D028,y
+        clc
+        lda _score
+        adc #50
+        sta _score
+        lda _score+1
+        adc #0
+        sta _score+1
         jmp @gstep
 @gn:    pla
         tay
@@ -664,7 +676,7 @@ try_place:
         sta _bomb_y,y
         lda #1
         sta _bomb_phase,y
-        lda #150
+        lda #75
         sta _bomb_timer,y
         tya
         pha
@@ -765,7 +777,7 @@ hiss:
         sta $D404
         rts
 
-boom:
+_sound_boom:
         lda #0
         sta $D400
         lda #4

@@ -9,7 +9,7 @@
 ; player, and red ghosts. One multicolor dot is two pixels wide, so
 ; each marker is also two rows tall and stays square when expanded.
 
-.import _gem_x, _gem_y, _pickups_left, _time_left
+.import _gem_x, _gem_y, _pickups_left, _time_left, _score
 .import _bomb_tick
 .import _player_x, _player_y, _ghost_x, _ghost_y
 .import popa
@@ -18,9 +18,13 @@
 .export _sound_init
 .export _sound_tick
 .export _sound_step
+.export _sound_pling
 .export _sound_siren
 .export _sound_door
 .export _sound_sad
+.export _sound_mood_begin
+.export _sound_mood_tick
+.export _sound_mood_end
 .export _plot_minimap
 .export _note_gem
 .export _door_tick
@@ -48,6 +52,9 @@ fan_t:      .res 1
 door_on:    .res 1
 door_lo:    .res 1
 door_hi:    .res 1
+mood_on:    .res 1
+mood_t:     .res 1
+mood_i:     .res 1
 work:       .res 1
 hold:       .res 1
 ink:        .res 1
@@ -69,6 +76,7 @@ _sound_init:
         sta siren_t
         sta fan_i
         sta fan_t
+        sta mood_on
         lda #$01
         sta $D405
         lda #$09
@@ -227,6 +235,114 @@ _sound_end:
         sta $D412
         rts
 
+; Slow minor line, an echo a half loop behind, and a low drone that
+; bends. Plays under the title and the high score list.
+_sound_mood_begin:
+        lda #1
+        sta mood_on
+        lda #0
+        sta mood_i
+        lda #1
+        sta mood_t
+        lda #$40
+        sta $D404
+        lda #$10
+        sta $D40B
+        lda #$10
+        sta $D412
+        lda #$00
+        sta $D402
+        lda #$06
+        sta $D403               ; narrow pulse, the echo
+        lda #$39
+        sta $D405
+        lda #$7A
+        sta $D406
+        lda #$59
+        sta $D40C
+        lda #$8C
+        sta $D40D
+        lda #$C0
+        sta $D413
+        lda #$C8
+        sta $D414
+        lda #$A0
+        sta $D40E
+        lda #$03
+        sta $D40F
+        lda #$11
+        sta $D412               ; triangle drone, left gated
+        lda #$0C
+        sta $D418
+        rts
+
+_sound_mood_tick:
+        lda mood_on
+        beq @out
+        lda mood_t
+        and #$0F
+        tay
+        lda drone,y
+        sta $D40E
+        dec mood_t
+        bne @out
+        ldy mood_i
+        lda mlo,y
+        sta $D407
+        lda mhi,y
+        sta $D408
+        lda #$10
+        sta $D40B
+        lda mhi,y
+        beq @v2
+        lda #$11
+        sta $D40B
+@v2:    tya
+        clc
+        adc #8
+        and #$0F
+        tax
+        lda mlo,x
+        clc
+        adc #3                  ; a few cents flat, so the echo beats
+        sta $D400
+        lda mhi,x
+        sta $D401
+        lda #$40
+        sta $D404
+        lda mhi,x
+        beq @v1
+        lda #$41
+        sta $D404
+@v1:    iny
+        tya
+        and #$0F
+        sta mood_i
+        lda #20
+        sta mood_t
+@out:   rts
+
+_sound_mood_end:
+        lda #0
+        sta mood_on
+        lda #$40
+        sta $D404
+        lda #$10
+        sta $D40B
+        lda #$10
+        sta $D412
+        lda #$0F
+        sta $D418
+        rts
+
+; A2 C3 E3 D#3 F3 E3 C3 rest, B2 D3 F3 E3 D#3 C3 A2 rest.
+mlo:    .byte $51, $B3, $F6, $59, $9D, $F6, $B3, $00
+        .byte $36, $C4, $9D, $F6, $59, $B3, $51, $00
+mhi:    .byte $07, $08, $0A, $0A, $0B, $0A, $08, $00
+        .byte $08, $09, $0B, $0A, $0A, $08, $07, $00
+drone:  .byte $9C, $A0, $A4, $A8, $AC, $B0, $B8, $C0
+        .byte $B8, $B0, $AC, $A8, $A4, $A0, $9C, $94
+
 _sound_tick:
         lda siren_t
         beq @fan
@@ -303,7 +419,13 @@ _note_gem:
         cpx #10
         bne @find
         jsr _plot_minimap
-        lda _pickups_left
+        clc
+        lda _score
+        adc #10
+        sta _score
+        bcc @scored
+        inc _score+1
+@scored: lda _pickups_left
         bne @pling
         jmp _sound_fanfare
 @pling: jmp _sound_pling

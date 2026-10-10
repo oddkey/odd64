@@ -9,6 +9,8 @@ export const MAP_ZOOMS = [1, 2, 4, 8, 16];
 export const EDITOR_ZOOMS = [16, 32, 64, 128, 256];
 export const CLIPBOARD_KIND = "chared64-glyphs";
 export const CLIPBOARD_STORAGE_KEY = "chared64.clipboard";
+export const SCREEN_CLIPBOARD_KIND = "chared64-screen";
+export const SCREEN_CLIPBOARD_STORAGE_KEY = "chared64.screenClipboard";
 
 export function fitZoom(availableCss, sourcePixels, dpr = 1) {
   if (!(availableCss > 0) || !(sourcePixels > 0)) return 0;
@@ -232,6 +234,200 @@ export function pushTileUndo(project, cells) {
   if (cells.length === 0) return;
   project.tileUndo.push(cells);
   trimUndo(project.tileUndo);
+}
+
+const SCREEN_SYMBOLS = {
+  "@": 0,
+  "[": 27,
+  "£": 28,
+  "]": 29,
+  "↑": 30,
+  "←": 31,
+  "π": 126,
+};
+
+function cellInk(project, color) {
+  return color & (project.mode === "multi" ? 7 : 15);
+}
+
+// The uppercase set stores A–Z at screen codes 1–26. The lowercase set stores a–z there and A–Z at 65–90.
+export function screenCodeForChar(ch, activeSet) {
+  if (typeof ch !== "string" || [...ch].length !== 1) return null;
+  const code = ch.codePointAt(0);
+  if (code >= 32 && code <= 63) return code;
+  if (Object.prototype.hasOwnProperty.call(SCREEN_SYMBOLS, ch)) return SCREEN_SYMBOLS[ch];
+  const upper = code >= 65 && code <= 90;
+  const lower = code >= 97 && code <= 122;
+  if (!upper && !lower) return null;
+  if (activeSet === "lower") return upper ? code : code - 96;
+  return upper ? code - 64 : code - 96;
+}
+
+export function writeTileCell(project, x, y, char, color) {
+  if (x < 0 || y < 0 || x >= project.tileWidth || y >= project.tileHeight) return false;
+  const i = y * project.tileWidth + x;
+  const ink = cellInk(project, color);
+  const next = char & 255;
+  if (project.tileChars[i] === next && project.tileColors[i] === ink) return false;
+  pushTileUndo(project, [{ i, char: project.tileChars[i], color: project.tileColors[i] }]);
+  project.tileChars[i] = next;
+  project.tileColors[i] = ink;
+  return true;
+}
+
+export function typeTileText(project, cursor, text, color) {
+  const homeX = Number.isInteger(cursor.homeX) ? cursor.homeX : cursor.x;
+  const kept = { x: cursor.x, y: cursor.y, homeX };
+  if (cursor.x < 0 || cursor.y < 0 || cursor.x >= project.tileWidth || cursor.y >= project.tileHeight) {
+    return { cursor: kept, changed: false };
+  }
+  const ink = cellInk(project, color);
+  const cells = [];
+  let x = cursor.x;
+  let y = cursor.y;
+  const chars = [...text];
+  for (let n = 0; n < chars.length; n += 1) {
+    let ch = chars[n];
+    if (ch === "\r" && chars[n + 1] === "\n") n += 1;
+    if (ch === "\r") ch = "\n";
+    if (ch === "\n") {
+      if (y + 1 < project.tileHeight) {
+        y += 1;
+        x = Math.min(Math.max(0, homeX), project.tileWidth - 1);
+      }
+      continue;
+    }
+    const code = screenCodeForChar(ch, project.activeSet);
+    if (code == null) continue;
+    const i = y * project.tileWidth + x;
+    if (project.tileChars[i] !== code || project.tileColors[i] !== ink) {
+      cells.push({ i, char: project.tileChars[i], color: project.tileColors[i] });
+      project.tileChars[i] = code;
+      project.tileColors[i] = ink;
+    }
+    if (x + 1 < project.tileWidth) x += 1;
+    else if (y + 1 < project.tileHeight) {
+      x = 0;
+      y += 1;
+    }
+  }
+  pushTileUndo(project, cells);
+  return { cursor: { x, y, homeX }, changed: cells.length > 0 };
+}
+
+export function tileRectFromCorners(a, b, width, height) {
+  const x0 = Math.max(0, Math.min(width - 1, Math.min(a.x, b.x)));
+  const y0 = Math.max(0, Math.min(height - 1, Math.min(a.y, b.y)));
+  const x1 = Math.max(0, Math.min(width - 1, Math.max(a.x, b.x)));
+  const y1 = Math.max(0, Math.min(height - 1, Math.max(a.y, b.y)));
+  return { x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
+}
+
+export function copyTileSelection(project, rect) {
+  const chars = [];
+  const colors = [];
+  for (let y = 0; y < rect.height; y += 1) {
+    for (let x = 0; x < rect.width; x += 1) {
+      const cx = rect.x + x;
+      const cy = rect.y + y;
+      const i = cy * project.tileWidth + cx;
+      chars.push(project.tileChars[i]);
+      colors.push(project.tileColors[i]);
+    }
+  }
+  return {
+    kind: SCREEN_CLIPBOARD_KIND,
+    x: rect.x,
+    y: rect.y,
+    width: rect.width,
+    height: rect.height,
+    chars,
+    colors,
+  };
+}
+
+export function parseScreenClipboard(raw) {
+  let data = raw;
+  if (typeof raw === "string") {
+    if (!raw) return null;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  if (data.kind !== SCREEN_CLIPBOARD_KIND) return null;
+  const { width, height } = data;
+  if (
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width < 1 ||
+    height < 1 ||
+    width > TILE_MAX ||
+    height > TILE_MAX
+  ) {
+    return null;
+  }
+  if (!Array.isArray(data.chars) || !Array.isArray(data.colors)) return null;
+  if (data.chars.length !== width * height || data.colors.length !== width * height) return null;
+  const chars = [];
+  const colors = [];
+  for (let i = 0; i < data.chars.length; i += 1) {
+    const char = data.chars[i];
+    const color = data.colors[i];
+    if (!Number.isInteger(char) || char < 0 || char > 255) return null;
+    if (!Number.isInteger(color) || color < 0 || color > 15) return null;
+    chars.push(char);
+    colors.push(color);
+  }
+  return {
+    kind: SCREEN_CLIPBOARD_KIND,
+    x: Number.isInteger(data.x) ? data.x : 0,
+    y: Number.isInteger(data.y) ? data.y : 0,
+    width,
+    height,
+    chars,
+    colors,
+  };
+}
+
+export function clearTileSelection(project, rect) {
+  const ink = defaultInk(project);
+  const cells = [];
+  for (let y = 0; y < rect.height; y += 1) {
+    for (let x = 0; x < rect.width; x += 1) {
+      const i = (rect.y + y) * project.tileWidth + (rect.x + x);
+      if (project.tileChars[i] === DEFAULTS.fillChar && project.tileColors[i] === ink) continue;
+      cells.push({ i, char: project.tileChars[i], color: project.tileColors[i] });
+      project.tileChars[i] = DEFAULTS.fillChar;
+      project.tileColors[i] = ink;
+    }
+  }
+  pushTileUndo(project, cells);
+  return cells.length > 0;
+}
+
+export function pasteTileSelection(project, origin, clip) {
+  const source = parseScreenClipboard(clip);
+  if (!source) return false;
+  const cells = [];
+  for (let y = 0; y < source.height; y += 1) {
+    for (let x = 0; x < source.width; x += 1) {
+      const dx = origin.x + x;
+      const dy = origin.y + y;
+      if (dx < 0 || dy < 0 || dx >= project.tileWidth || dy >= project.tileHeight) continue;
+      const i = dy * project.tileWidth + dx;
+      const char = source.chars[y * source.width + x];
+      const color = source.colors[y * source.width + x];
+      if (project.tileChars[i] === char && project.tileColors[i] === color) continue;
+      cells.push({ i, char: project.tileChars[i], color: project.tileColors[i] });
+      project.tileChars[i] = char;
+      project.tileColors[i] = color;
+    }
+  }
+  pushTileUndo(project, cells);
+  return cells.length > 0;
 }
 
 export function markCopy(project) {

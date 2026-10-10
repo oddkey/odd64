@@ -90,10 +90,16 @@
             <button type="button" data-value="char" aria-pressed="true">Character</button>
             <button type="button" data-value="color" aria-pressed="false">Color</button>
           </div>
-          <div class="segmented" id="tile-shape" role="group" aria-label="Draw shape">
+          <div class="segmented" id="tile-shape" role="group" aria-label="Screen tool">
             <button type="button" data-value="pen" aria-pressed="true">Pen</button>
             <button type="button" data-value="area" aria-pressed="false">Area</button>
+            <button type="button" data-value="select" aria-pressed="false">Select</button>
+            <button type="button" data-value="type" aria-pressed="false" title="Type text. Click a cell, then type. Enter continues at that column.">Type</button>
           </div>
+          <span id="tile-select-label" class="meta"></span>
+          <button type="button" id="tile-cut" title="Cut the selected cells">Cut</button>
+          <button type="button" id="tile-copy" title="Copy the selected cells">Copy</button>
+          <button type="button" id="tile-paste" title="Paste at the selection">Paste</button>
           <div class="tile-ink">
             <span>Cell</span>
             <div id="tile-palette" class="tile-palette" role="radiogroup" aria-label="Screen cell color"></div>
