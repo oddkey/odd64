@@ -1,0 +1,56 @@
+Initial requirements for CharEd64, an editor for character sets for the Commodore 64.
+
+CharEd64 will be an HTML-based UI for creating new Commodore 64 binaries that can be used for creating custom character ROM sets for the Commodore 64.
+
+The file c64.bin contains the original Commodore 64 character set, stored as a binary file.
+
+Initial creation of characters:
+
+Users can choose to:
+1. Create new character sets based on the original character set. The user starts with the original character set and can the proceed to edit each character into his or her vision.
+2. Start with a blank slate, in which each charater must be defined by the user from the ground.
+
+Other options:
+User can select two character options at start:
+1. Single color characters, as is the default state for the original character set in which each character is represented by a 8x8 pixel frame.
+2. Multi-color characters, which means that the character will be using the c64 multicolor mode in which each character has 4 colors, but only 4 pixels horizontally, in which each each pixed takes 2 bits which must represents one the four colors. 
+3. The user can switch between the upper case characters and lower case characters at any time.
+The user can change these options at any time, even though displaying an originally single-color character set as a multi-color character set will look weird.
+
+Color selections:
+All color selections must be based on the 16 default colors that are available for the Commodore 64.
+For single color characters, the user can select the background color and the foreground color for the characters.
+For multi-color characters, the user can select a color for the background and the three multicolor colors.
+The user may change the colors at any time.
+
+Application panels
+There are three panels that the user will be working in. All three must be visible at the same time.
+1. The character selection panel: This displays all the 256 characters in a 16x16 matrix. When the user clicks on one of the characters, the character will be displayed in the character editor panel.
+2. The character editor panel: This panel should be displayed to the right of the character selection panel. It allows the user to edit a specific character.
+3. The tile editor panel: This panel can be used to build screens based on the characters.
+
+The choice of single-color or multi-color characters will be reflected on all the panels.
+
+The character selection panel:
+When the user selects a character in this panel, the character must be highlighted and opened in the character editor panel. Also, selected characters will be used as the current selected character when drawing inserting characters into the tile editor panel. The characters will be displayed as single color characters if single color mode is selected. Otherwise they will be displayed as multicolor characters. The user can choose the zoom size of the character panel, from the 1x, 2x, 4x, 8x or 16x. The default choice is 2x.
+
+The character editor panel:
+The character editor panel allows the user to edit the currently selected character. The character editor panel will display the character in a zoomed out display, making it easier for the user to edit each pixel. The default zoom is 32x32, but the user may select 16x16, 32x32, 64x64 or 128x128, 256x256. If the user has selected single color mode, the user can edit each characters with 8x8 pixels. Either background or foreground color can be selected when setting a pixel. If the user has selected multicolor mode, the user can edit each characters with 4x8 pixels, but the horizontal pixels will be streched to cover two pixels. The user can select background color of one of the 3 multicolors when setting a pixel. It should also be possible to copy and paste character data from the character selection panel and into the character editor panel. The character selected for copying should be highlighted, but differently from the current selected character. Undo options should be available in the character editor. Changes to a character should be reflected in the character selection panel and the tile editor panel, but not in a way that may cause performance issues. Allow for some time to go before reflecting character changes back to the other panels.
+
+The tile editor panel:
+This panel will initially be a matrix displaying 40x25 characters. But the user may also select other widths and heights for the panel, e.g. 80x50 characters or whatever the user wants. The user should be able to select the same kind of zoom levels as with the character selection panel. For single color charaters, the user may select a single color for each charater displayed on the screen, from the 16 color palette. For multicolor characters, the user will still be able to select a specific color per character on screen, since there are three "freezed" colors, including the background color, for multicolor characters, but one "free" color that can be set per character on screen. The user will be able to draw the currently selected character onto the tile editor panel. Undo options should be available in the tile editor panel. The user should also be able to switch between character draw mode and color draw mode. On both these modes, the user should be able to switch between "pen" mode drawing, in which the character is drawn on the screen while the button is held in and the user moves the mouse, and "area" drawing, in which the user can hold in the mouse pointer and draw the currently selected character over a selected area.
+
+Loading and storing character sets:
+The user may chose to export the data for the project as a JSON file or as a binary file for the character data only.
+Project JSON file must contain:
+1. Project meta-data: Color selections, panel scale data and other relevant data.
+2. Character data: stored as comma separated numbers, each number representing a byte of character data.
+2. Tile editor data: two arrays of data, one for the charaters and the other for the colors. Each stored as comma separated numbers, each representing a byte of character or color data.
+
+The user decides the name of the project, and the exported files will be named using the project name.
+
+The user may later import project files, which will restore project meta-data and character data.
+
+The application should have a modern, professional look.
+
+

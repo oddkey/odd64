@@ -1,0 +1,24 @@
+# Operating system
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.vscode/
+*.swp
+*~
+
+# IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Node tooling. Tests use node:test and do not need a package today.
+node_modules/
+coverage/
+.nyc_output/
+*.lcov
+npm-debug.log*
+.eslintcache

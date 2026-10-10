@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CharEd64</title>
+    <link rel="stylesheet" href="css/app.css">
+  </head>
+  <body>
+    <div class="app">
+      <header class="toolbar">
+        <div class="brand">CharEd64</div>
+        <label class="name">Project <input id="project-name" type="text" spellcheck="false" autocomplete="off"></label>
+        <div class="segmented" id="bank-seg" role="group" aria-label="Character set">
+          <button type="button" data-value="upper" aria-pressed="true">Uppercase</button>
+          <button type="button" data-value="lower" aria-pressed="false">Lowercase</button>
+        </div>
+        <div class="segmented" id="mode-seg" role="group" aria-label="Color mode">
+          <button type="button" data-value="single" aria-pressed="true">Single</button>
+          <button type="button" data-value="multi" aria-pressed="false">Multi</button>
+        </div>
+        <div class="segmented touch-mode" id="touch-mode" role="group" aria-label="Touch">
+          <button type="button" data-value="scroll" aria-pressed="true">Scroll</button>
+          <button type="button" data-value="draw" aria-pressed="false">Draw</button>
+        </div>
+        <button type="button" id="new-rom">From ROM</button>
+        <button type="button" id="new-blank">Blank</button>
+        <button type="button" id="import-btn">Import</button>
+        <input id="import-file" type="file" accept="application/json,.json" hidden>
+        <button type="button" id="export-json">Export JSON</button>
+        <button type="button" id="export-bin">Export charset</button>
+        <p id="status" class="status" role="status"></p>
+        <p class="touch-hint">Swipe to move the page. Tap to select or paint. Draw lets you drag.</p>
+      </header>
+
+      <aside class="panel colors" aria-label="Colors">
+        <div class="panel-head">
+          <h2>Colors</h2>
+        </div>
+        <div class="panel-body">
+          <div id="palette" class="palette" role="radiogroup" aria-label="Commodore 64 palette"></div>
+          <div id="paint-roles" class="roles" role="group" aria-label="Paint color"></div>
+          <p class="hint">Choose a role, then a palette color. That is the pixel you paint in the glyph editor. Right-click paints the background. The screen has its own cell color.</p>
+          <div class="preview-wrap">
+            <canvas id="preview-canvas" width="64" height="64" aria-label="Actual-size preview"></canvas>
+            <span class="hint">Preview</span>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel editor" aria-label="Glyph editor">
+        <div class="panel-head">
+          <h2>Editor</h2>
+          <span id="char-label" class="meta">0  $00</span>
+          <label class="zoom">Zoom
+            <select id="zoom-editor" aria-label="Editor zoom"></select>
+          </label>
+          <button type="button" id="copy">Copy</button>
+          <button type="button" id="paste">Paste</button>
+          <button type="button" id="undo-glyph">Undo</button>
+        </div>
+        <div class="panel-body editor-body">
+          <canvas id="editor-canvas" aria-label="Glyph editor"></canvas>
+        </div>
+      </section>
+
+      <section class="panel map" aria-label="Character map">
+        <div class="panel-head">
+          <h2>Characters</h2>
+          <span id="copy-label" class="meta">Copy none</span>
+          <label class="zoom">Zoom
+            <select id="zoom-map" aria-label="Character map zoom"></select>
+          </label>
+        </div>
+        <div class="panel-body">
+          <canvas id="map-canvas" aria-label="256 characters"></canvas>
+        </div>
+      </section>
+
+      <section class="panel tiles" aria-label="Tile editor">
+        <div class="panel-head wrap">
+          <h2>Screen</h2>
+          <label class="zoom">Zoom
+            <select id="zoom-tile" aria-label="Screen zoom"></select>
+          </label>
+          <label>W <input id="tile-w" type="number" min="1" max="256" step="1" value="40"></label>
+          <label>H <input id="tile-h" type="number" min="1" max="256" step="1" value="25"></label>
+          <button type="button" id="tile-resize">Resize</button>
+          <div class="segmented" id="tile-tool" role="group" aria-label="Draw mode">
+            <button type="button" data-value="char" aria-pressed="true">Character</button>
+            <button type="button" data-value="color" aria-pressed="false">Color</button>
+          </div>
+          <div class="segmented" id="tile-shape" role="group" aria-label="Draw shape">
+            <button type="button" data-value="pen" aria-pressed="true">Pen</button>
+            <button type="button" data-value="area" aria-pressed="false">Area</button>
+          </div>
+          <div class="tile-ink">
+            <span>Cell</span>
+            <div id="tile-palette" class="tile-palette" role="radiogroup" aria-label="Screen cell color"></div>
+          </div>
+          <button type="button" id="undo-tile">Undo</button>
+        </div>
+        <div class="tile-frame" id="tile-frame">
+          <div class="tile-scroll" id="tile-scroll">
+            <div id="tile-spacer"></div>
+          </div>
+          <canvas id="tile-canvas" aria-label="Tile screen"></canvas>
+          <canvas id="tile-overlay" aria-hidden="true"></canvas>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
