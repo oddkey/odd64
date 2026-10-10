@@ -4,3 +4,5 @@
 /.idea/modules.xml
 /.idea/odd64.iml
 /.idea/vcs.xml
+/build/build.ninja
+/cc65-versions-of-basic-examples/.vscode/launch.json
