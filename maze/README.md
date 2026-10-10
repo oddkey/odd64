@@ -8,6 +8,20 @@ Ten white diamonds are scattered on open floor. Each one is worth 10 points. Thr
 
 The title picture was drawn in [CharEd64](../chared64/README.md) and is stored in `maze2046.json`. The title and the high score list both say PRESS H FOR HELP. H opens the story on two pages. Fire or the space bar turns to the second page, and Q returns to the screen that was showing.
 
+## Maze generator
+
+The maze is a perfect maze. Every room can be reached from the start, and until a bomb breaks a wall there is exactly one route between any two rooms. That is why the corridors run long and twist.
+
+The map is 160 by 100 characters, but the generator works on a grid of 39 by 24 rooms. Each room is a 3 by 3 block of floor, and a wall one character thick separates the rooms. Room column `cx` and row `cy` begin at character `1 + cx * 4` and `1 + cy * 4`. The spare characters around that grid stay wall, so the rooms never touch the edge of the map.
+
+Generation fills the whole map with wall, carves the start room at `(0, 0)`, and pushes that room on a stack. From the room on top it looks up, down, left, and right. It picks an unvisited neighbor at random, knocks out the three wall characters between the two rooms, carves the new room, and pushes it. A room counts as open once the top-left character of its 3 by 3 is floor, so a passage is never opened into a room that has already been visited. That rule keeps the maze free of loops.
+
+A room with no unvisited neighbor is a dead end. The generator pops it and continues from the room underneath. The stack is the corridor being dug, so a region is filled before the search leaves it. The stack is two arrays of 936 bytes rather than C recursion, because a corridor that visits every room would be too deep for the 6502 call stack. The loop ends when the stack is empty. All 936 rooms have been carved by then.
+
+While the screen is blanked, each step copies the CIA timer into the border, which is the color cycling during the wait.
+
+The exit then overwrites the 3 by 3 of the last room, `(38, 23)`, with left arrows. The outermost ring of the map is repainted as the darker blue shell. Bombs can break the light-blue inner walls, and that shell stays. Diamonds and hearts are placed only on floor the carve left behind.
+
 ## Build
 
 cc65 (`cl65`) needs to be on `PATH`.
