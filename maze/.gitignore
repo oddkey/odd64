@@ -1,0 +1,7 @@
+# cl65 / cc65 build products (see Makefile clean)
+*.o
+*.prg
+*.map
+*.lbl
+*.lst
+*.dbg
