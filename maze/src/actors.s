@@ -15,13 +15,29 @@
 .import _life, _hurt_cool, _frame_div, _outcome
 .import _sound_siren
 .import _plot_minimap
+.import _place_foes
 
 .export _chase_ghosts
 .export _place_sprites
 .export _blank_status
 .export _ghost_head
 .export gindex
+.export box_wall
+.export origin_ok
+.export pixel_wall
+.export ghost_on_screen
+.export tx
+.export ty
+.export px
+.export py
+.export gx
+.export gy
+.export msb
 .import _ghost_hold
+.import _kiss_at
+.import _girl_love
+.import _girl_pair
+.import _ghost_stun
 
 .segment "BSS"
 
@@ -95,6 +111,8 @@ cell_byte:
         ldy #0
         lda (ptr1),y
         cmp #160
+        beq @wall
+        cmp #161
         beq @wall
         clc
         rts
@@ -516,7 +534,22 @@ _chase_ghosts:
 @ghost: jsr _ghost_hold
         bcc @live
         jmp @next
-@live:  ldx gslot
+@live:  ldy gindex
+        lda _girl_love
+        beq @nolove
+        lda _girl_pair
+        cmp gindex
+        bne @nolove
+        jmp @next
+@nolove:
+        lda _ghost_stun,y
+        beq @nostun
+        sec
+        sbc #1
+        sta _ghost_stun,y
+        jmp @next
+@nostun:
+        ldx gslot
         lda _ghost_x,x
         sta gx
         lda _ghost_x+1,x
@@ -643,13 +676,22 @@ _chase_ghosts:
         bcs @hurt
         jmp @ghost
 
-@hurt:  lda _hurt_cool
-        beq @scan
+@hurt:  ldx #0
+        lda _hurt_cool
+        beq @mark
         dec _hurt_cool
-        rts
+        ldx #1
+@mark:  stx tmp1
 @scan:  lda #0
         sta gslot
-@hit:   ldx gslot
+@hit:   lda _girl_love
+        beq @hgo
+        lda gslot
+        lsr
+        cmp _girl_pair
+        bne @hgo
+        jmp @miss
+@hgo:   ldx gslot
         sec
         lda _ghost_x,x
         sbc _player_x
@@ -694,6 +736,11 @@ _chase_ghosts:
         lda dy
         cmp #10
         bcs @miss
+        lda gslot
+        lsr
+        jsr _kiss_at
+        lda tmp1
+        bne @miss
         lda _life
         beq @dead
         sec
@@ -815,7 +862,8 @@ _place_sprites:
         cmp #8
         bcs @msb
         jmp @gs
-@msb:   lda msb
+@msb:   jsr _place_foes
+        lda msb
         ora #$20                ; minimap sprite sits past x = 255
         sta $D010
         jmp _plot_minimap

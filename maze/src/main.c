@@ -41,7 +41,9 @@
 #define DIAMOND         90            /* PETSCII diamond, screen code */
 #define DOOR            31            /* PETSCII left arrow, screen code */
 #define OUTER           161           /* map only; drawn as a blue wall */
-#define BOMB_BODY       81            /* circle, screen code */
+#define BOMB_BODY       81            /* open circle, screen code */
+#define CIRCLE          87            /* filled circle, the minute pickup */
+#define CLUB            88            /* ace of clubs, a breadcrumb */
 #define FUSE_CHAR       85            /* PETSCII 117 */
 #define FUSE_REVERSE    213           /* same glyph, reversed on a wall */
 #define STAR_CHAR       42
@@ -54,7 +56,7 @@
 #define HEART_GAP       32
 #define GHOSTS          4
 #define LIFE_MAX        10
-#define TIME_START      300           /* five minutes */
+#define TIME_START      600           /* ten minutes on levels 1 to 3 */
 #define FAR_AWAY        80
 #define HURT_FRAMES     40
 
@@ -124,10 +126,14 @@ extern void sound_init(void);
 extern void sound_tick(void);
 extern void sound_step(void);
 extern void sound_pling(void);
-extern void sound_door(void);
 extern void __fastcall__ note_gem(unsigned char col, unsigned char row);
-extern unsigned char door_tick(void);
+extern void sound_trumpet(void);
+extern void sound_home(void);
+extern void foe_arm(void);
+extern void foe_tick(void);
 extern unsigned char button_down(void);
+extern void name_arm(void);
+extern unsigned char name_pad(void);
 extern void sound_sad(void);
 extern void sound_boom(void);
 extern void sound_mood_begin(void);
@@ -166,12 +172,16 @@ unsigned short ghost_x[GHOSTS];
 unsigned short ghost_y[GHOSTS];
 unsigned char life;
 unsigned char pickups_left;
-static unsigned char door_run;
+static unsigned char level_done;
 unsigned char hurt_cool;
 unsigned char frame_div;
 unsigned char outcome;          /* 0 play, 1 win, 2 lose */
 unsigned int time_left;
 unsigned int score;
+unsigned char level;
+unsigned char time_bonus;
+static unsigned char start_level;
+static unsigned char shifted_digit;
 static const unsigned char ghost_ink[GHOSTS] = {
     COLOR_RED, COLOR_PURPLE, COLOR_CYAN, COLOR_GREEN
 };
@@ -189,6 +199,7 @@ unsigned char bomb_phase[BOMB_SLOTS]; /* 0 empty, 1 fuse, 2 blast */
 unsigned char bomb_timer[BOMB_SLOTS];
 unsigned int bomb_mask[BOMB_SLOTS];
 unsigned char bombs_left;
+unsigned char crumbs_left; /* must stay next to bombs_left */
 unsigned int ghost_freeze[GHOSTS];
 
 #pragma code-name(push, "BOMB")
@@ -205,6 +216,12 @@ static unsigned char tile_color(unsigned char tile)
         return COLOR_GREEN;
     }
     if (tile == STAR_CHAR || tile == DIAMOND || tile == BOMB_BODY) {
+        return COLOR_WHITE;
+    }
+    if (tile == CIRCLE) {
+        return COLOR_YELLOW;
+    }
+    if (tile == CLUB) {
         return COLOR_WHITE;
     }
     if (tile == HEART) {
@@ -594,6 +611,7 @@ static void prepare_scroll(void)
 static void update_sprite(void);
 static void refresh_status(void);
 void bomb_status(void);
+void crumb_status(void);
 
 /* Call at raster 250. The matrix flip lands in the border. Colors are
    filled with interrupts on, so the title split can still fire. */
@@ -767,8 +785,7 @@ static unsigned char on_door(void);
 
 static void reach_exit(void)
 {
-    door_run = 1;
-    sound_door();
+    level_done = 1;
 }
 #ifdef AUTO_FRAMES
 static unsigned char auto_input(void);
@@ -809,7 +826,7 @@ static void scroll_to(unsigned short target_x, unsigned short target_y)
             reach_exit();
         }
         advance_world();
-        if (outcome || door_run) {
+        if (outcome || level_done) {
             return;
         }
     }
@@ -830,7 +847,7 @@ static void run_scroll(void)
     unsigned short target;
     unsigned short before;
     for (;;) {
-        if (outcome || door_run) {
+        if (outcome || level_done) {
             return;
         }
         if (player_x + HIT_W + SCROLL_EDGE > cam_x + VIEW_W && cam_x < CAM_MAX_X) {
@@ -908,7 +925,6 @@ static unsigned char name_len;
 
 static void update_score_bar(void);
 static void attract(unsigned char which, unsigned char drawn);
-static void run_exit_score(void);
 static void after_game(void);
 
 /* Column is constant at the call sites that run during play, so this
@@ -930,27 +946,20 @@ static void status_clock(void)
     unsigned char a;
     unsigned char b;
     unsigned char c;
+    unsigned char ink;
+    /* Yellow while a minute is still ticking on, so the climb is obvious. */
+    ink = time_bonus ? COLOR_YELLOW : COLOR_WHITE;
     min = (unsigned char)(time_left / 60);
     sec = (unsigned char)(time_left % 60);
     a = (unsigned char)(48 + min / 10);
     b = (unsigned char)(48 + min % 10);
     c = (unsigned char)(48 + sec / 10);
-    SCREEN_A[5] = a;
-    SCREEN_B[5] = a;
-    COLOR_RAM[5] = COLOR_WHITE;
-    SCREEN_A[6] = b;
-    SCREEN_B[6] = b;
-    COLOR_RAM[6] = COLOR_WHITE;
-    SCREEN_A[7] = 58;
-    SCREEN_B[7] = 58;
-    COLOR_RAM[7] = COLOR_WHITE;
-    SCREEN_A[8] = c;
-    SCREEN_B[8] = c;
-    COLOR_RAM[8] = COLOR_WHITE;
+    status_at(5, a, ink);
+    status_at(6, b, ink);
+    status_at(7, 58, ink);
+    status_at(8, c, ink);
     c = (unsigned char)(48 + sec % 10);
-    SCREEN_A[9] = c;
-    SCREEN_B[9] = c;
-    COLOR_RAM[9] = COLOR_WHITE;
+    status_at(9, c, ink);
 }
 
 static void status_hearts(void)
@@ -1010,6 +1019,7 @@ static void draw_status(void)
         status_gems();
         status_hearts();
         bomb_status();
+        crumb_status();
     }
     shown_life = life;
     shown_time = time_left;
@@ -1097,6 +1107,13 @@ static void take_pickups(void)
                     pickups_left--;
                 }
                 note_gem(tx, ty);
+            } else if (map[ty][tx] == CIRCLE) {
+                erase_map_tile(tx, ty);
+                if (time_bonus > 195) {
+                    time_bonus = 255;
+                } else {
+                    time_bonus = (unsigned char)(time_bonus + 60);
+                }
             } else if (map[ty][tx] == HEART) {
                 erase_map_tile(tx, ty);
                 if (life < LIFE_MAX) {
@@ -1135,15 +1152,21 @@ static void advance_world(void)
         return;
     }
     chase_ghosts();
+    foe_tick();
     sound_tick();
-    frame_div++;
-    if (frame_div >= 50) {
-        frame_div = 0;
-        if (time_left) {
-            time_left--;
-        }
-        if (time_left == 0) {
-            outcome = 2;
+    if (time_bonus) {
+        time_left++;
+        time_bonus--;
+    } else {
+        frame_div++;
+        if (frame_div >= 50) {
+            frame_div = 0;
+            if (time_left) {
+                time_left--;
+            }
+            if (time_left == 0) {
+                outcome = 2;
+            }
         }
     }
     update_sprite();
@@ -1356,6 +1379,7 @@ static void place_ghosts(void)
     }
 }
 
+#pragma code-name(push, "BOMB")
 static void carve_cell(unsigned char cx, unsigned char cy)
 {
     unsigned char x;
@@ -1476,11 +1500,12 @@ static void generate_maze(void)
     }
 #endif
 }
+#pragma code-name(pop)
 
 static void setup_video(void)
 {
     *(volatile unsigned char*)0xD018 = 0x15;   /* screen $0400, charset $1000 */
-    *(volatile unsigned char*)0xD015 = 0x3F;   /* player, ghosts, diamond map */
+    *(volatile unsigned char*)0xD015 = 0xFF;   /* player, ghosts, map, devil, girl */
     SPRITE_PTR_A[1] = GHOST_BLOCK;
     SPRITE_PTR_B[1] = GHOST_BLOCK;
     SPRITE_PTR_A[2] = GHOST_BLOCK;
@@ -1595,9 +1620,11 @@ static void write_mixed(unsigned char row, unsigned char col,
     }
 }
 
-/* 40 by 25 screen from maze2046.json. */
-extern const unsigned char title_chars[1000];
-extern const unsigned char title_colors[1000];
+/* 40 by 25 screen from maze2046.json, stored as count, value pairs. */
+extern const unsigned char title_chars[];
+extern const unsigned char title_colors[];
+
+extern void unpack(const unsigned char* src, unsigned char* dest);
 
 static void show_title(void)
 {
@@ -1606,11 +1633,11 @@ static void show_title(void)
     play_xreg = 0xC8;
     *(volatile unsigned char*)0xD018 = 0x15;
     screen_off();
-    memcpy(SCREEN_A, title_chars, 1000);
-    memcpy(SCREEN_B, title_chars, 1000);
-    memcpy(color_a, title_colors, 1000);
-    memcpy(color_b, title_colors, 1000);
-    memcpy(COLOR_RAM, title_colors, 1000);
+    unpack(title_chars, SCREEN_A);
+    unpack(title_chars, SCREEN_B);
+    unpack(title_colors, color_a);
+    unpack(title_colors, color_b);
+    unpack(title_colors, COLOR_RAM);
     write_mixed(22, 12, "press h for help", COLOR_YELLOW);
     screen_on();
 }
@@ -1784,7 +1811,7 @@ static void show_hiscores(void)
    the play scan reads it: A is column $FD row bit $04, not $FB/$02.
    The table stays in documented order and the index is swapped.
    0 is ignored, 8 is delete, 13 is return. Letters come out as capitals. */
-static unsigned char poll_key(void)
+unsigned char poll_key(void)
 {
     volatile unsigned char* cia;
     unsigned char joy;
@@ -1839,10 +1866,13 @@ static unsigned char poll_key(void)
     }
     cia[0] = 0xFF;
     CLI();
+    shifted_digit = 0;
     if (ch >= 'a' && ch <= 'z') {
         ch = (unsigned char)(ch - 'a' + 'A');
-    } else if (shift && ch == '1') {
-        ch = '!';
+    } else if (shift && ch >= '0' && ch <= '9') {
+        /* 0 selects level 10. The digit still types as before. */
+        shifted_digit = (unsigned char)((ch == '0') ? 10 : ch - '0');
+        ch = (unsigned char)((ch == '1') ? '!' : 0);
     } else if (shift && ch != 8 && ch != 13 && ch != ' ') {
         ch = 0;
     }
@@ -1901,6 +1931,37 @@ static unsigned char name_blank(void)
     return 1;
 }
 
+/* 8 deletes, 13 finishes, anything else is stored. 1 means the name is done. */
+static unsigned char commit_ascii(unsigned char ch)
+{
+    if (ch == 13) {
+        if (name_blank()) {
+            return 0;
+        }
+        sound_pling();
+        return 1;
+    }
+    if (ch == 8) {
+        if (name_len == 0) {
+            return 0;
+        }
+        name_len--;
+        name_buf[name_len] = 0;
+        paint_name();
+        sound_pling();
+        return 0;
+    }
+    if (name_len >= NAME_MAX) {
+        return 0;
+    }
+    name_buf[name_len] = (char)ch;
+    name_len++;
+    name_buf[name_len] = 0;
+    paint_name();
+    sound_pling();
+    return 0;
+}
+
 static void enter_name(void)
 {
     unsigned char last;
@@ -1912,17 +1973,22 @@ static void enter_name(void)
     write_mixed(8, 10, "you scored", COLOR_WHITE);
     write_u16(8, 21, score, COLOR_YELLOW);
     write_mixed(12, 15, "your name:", COLOR_WHITE);
-    write_mixed(17, 14, "press return", COLOR_LIGHTGREEN);
+    write_mixed(17, 14, "fire selects", COLOR_LIGHTGREEN);
     screen_on();
     name_len = 0;
     name_buf[0] = 0;
     paint_name();
+    name_arm();
     blink = 0;
     last = poll_key();
     for (;;) {
         wait_frame();
         blink++;
         paint_cursor(blink);
+        ch = name_pad();
+        if (ch && commit_ascii(ch)) {
+            break;
+        }
         ch = poll_key();
         if (ch == 0) {
             last = 0;
@@ -1932,26 +1998,14 @@ static void enter_name(void)
             continue;
         }
         last = ch;
-        if (ch == 13) {
-            if (!name_blank()) {
-                break;
-            }
-            continue;
+        if (commit_ascii(ch)) {
+            break;
         }
-        if (ch == 8) {
-            if (name_len) {
-                name_len--;
-                name_buf[name_len] = 0;
-                paint_name();
-            }
-            continue;
-        }
-        if (name_len < NAME_MAX) {
-            name_buf[name_len] = (char)ch;
-            name_len++;
-            name_buf[name_len] = 0;
-            paint_name();
-        }
+    }
+    blink = 0;
+    while (blink < 8) {
+        wait_frame();
+        blink++;
     }
 }
 
@@ -2038,19 +2092,19 @@ static const char help_pages[] =
     "\n"
     "But beware! The ghosts are trying to\n"
     "steal your life energy, and you have\n"
-    "only 5 minutes before the time machine\n"
+    "only 10 minutes before the time machine\n"
     "explodes and all hope is lost!\n"
     "\n"
     "Fortunately you still have a few bombs\n"
     "left, which you can use to break through\n"
-    "walls or freeze the ghosts. But use them\n"
-    "wisely!\n"
+    "walls or freeze the ghosts. Fire chooses\n"
+    "a bomb or a breadcrumb. Circles add a minute.\n"
     "\n"
     "Good luck, Lord Flareworth!\n"
     "God save the Queen!\n";
 #pragma rodata-name(pop)
 
-#define HELP_RAM ((char*)0xC800)
+#define HELP_RAM ((char*)0xE000)
 
 #pragma code-name(pop)
 
@@ -2176,7 +2230,7 @@ static void show_help(void)
 /* Title and the high score list share the attract loop. The mood
    keeps playing across both screens until fire starts a maze.
    0 flips the screen, 1 starts a maze, 2 means the help page closed. */
-static unsigned char hold_screen(void)
+static unsigned char hold_screen(unsigned char title)
 {
     unsigned int t;
     unsigned char ch;
@@ -2184,10 +2238,15 @@ static unsigned char hold_screen(void)
     for (t = 0; t < 500; t++) {
         wait_frame();
         sound_mood_tick();
-        if (button_down()) {
+        ch = poll_key();
+        if (title && shifted_digit) {
+            start_level = shifted_digit;
             return 1;
         }
-        ch = poll_key();
+        if (button_down()) {
+            start_level = 1;
+            return 1;
+        }
         if (ch == 'H') {
             show_help();
             return 2;
@@ -2212,7 +2271,7 @@ static void attract(unsigned char which, unsigned char drawn)
         drawn = 0;
         {
             unsigned char held;
-            held = hold_screen();
+            held = hold_screen(which == 0);
             if (held == 1) {
                 sound_mood_end();
                 return;
@@ -2224,39 +2283,52 @@ static void attract(unsigned char which, unsigned char drawn)
     }
 }
 
-static void run_exit_score(void)
+/* Levels 1 to 3 keep the full ten minutes. Each maze after that
+   opens a minute shorter, so level 4 starts at nine. */
+static unsigned int level_time(void)
 {
-    unsigned char pause;
-    unsigned char done;
-
-    pause = 0;
-    while (!outcome) {
-        if (door_run == 1) {
-            done = door_tick();
-            if (outcome) {
-                return;
-            }
-            if (done) {
-                door_run = 2;
-                pause = 25;
-            } else {
-                score++;
-            }
-        } else if (pause) {
-            pause--;
-        } else if (bombs_left) {
-            bombs_left--;
-            score = (unsigned int)(score + 50);
-            sound_boom();
-            bomb_status();
-            pause = 45;
-        } else {
-            outcome = 1;
-            return;
-        }
-        wait_frame();
-        refresh_status();
+    if (level < 4) {
+        return TIME_START;
     }
+    return (unsigned int)(13 - level) * 60;
+}
+
+static void place_orbs(void)
+{
+    unsigned char n;
+    unsigned char x;
+    unsigned char y;
+    static const unsigned char box[3][4] = {
+        { 16, 8, 72, 92 },
+        { 72, 8, 128, 92 },
+        { 28, 36, 150, 94 }
+    };
+
+    for (n = 0; n < 3; n++) {
+        x = box[n][0];
+        y = box[n][1];
+        if (find_floor(box[n][0], box[n][1], box[n][2], box[n][3], &x, &y)) {
+            map[y][x] = CIRCLE;
+        }
+    }
+}
+
+static void show_level(void)
+{
+    plain_screen();
+    write_mixed(12, 16, "level ", COLOR_YELLOW);
+    put_cell(12 * 40 + 22, (unsigned char)(48 + level), COLOR_YELLOW);
+    screen_on();
+    sound_trumpet();
+}
+
+static void show_home(void)
+{
+    plain_screen();
+    write_mixed(10, 9, "the agent has returned", COLOR_YELLOW);
+    write_mixed(12, 12, "to his own time", COLOR_WHITE);
+    screen_on();
+    sound_home();
 }
 
 #pragma code-name(pop)
@@ -2279,18 +2351,30 @@ int main(void)
     attract(0, 1);
 
     for (;;) {
+    level = start_level;
+    score = 0;
+    latest = 0xFF;
+    outcome = 0;
+    while (!outcome) {
+    if (level >= 10) {
+        show_home();
+        outcome = 1;
+        break;
+    }
     screen_off();
+    srand(level);
     generate_maze();
     place_door();
     paint_shell();
     place_diamonds();
     place_hearts();
+    place_orbs();
     place_ghosts();
-    life = LIFE_MAX;
     bombs_left = BOMB_SLOTS;
-    time_left = TIME_START;
-    score = 0;
-    latest = 0xFF;
+    crumbs_left = 9;
+    life = LIFE_MAX;
+    time_left = level_time();
+    time_bonus = 0;
     outcome = 0;
     hurt_cool = 0;
     frame_div = 0;
@@ -2306,7 +2390,7 @@ int main(void)
     facing = 0;
     walk_phase = 0;
     player_dir = 0;
-    door_run = 0;
+    level_done = 0;
 
     showing_b = 0;
     flip_pending = 0;
@@ -2317,6 +2401,9 @@ int main(void)
     pred_ready = 0;
     seen_x = 0;
     seen_y = 0;
+    foe_arm();
+    show_level();
+    screen_off();
     redraw_view(SCREEN_A, color_a);
     memcpy(SCREEN_B, SCREEN_A, 1000);
     memcpy(color_b, color_a, 1000);
@@ -2332,12 +2419,8 @@ int main(void)
     sprites_on = 1;
     screen_on();
 
-    while (!outcome) {
+    while (!outcome && !level_done) {
         unsigned char in;
-        if (door_run) {
-            run_exit_score();
-            continue;
-        }
 #ifdef AUTO_FRAMES
         in = auto_input();
 #else
@@ -2394,6 +2477,10 @@ int main(void)
             debug_jam();
         }
 #endif
+    }
+    if (!outcome) {
+        level++;
+    }
     }
     after_game();
     attract(1, 0);

@@ -2,10 +2,12 @@
 ; live here so the playfield code can stay below the second screen.
 
 .importzp ptr1, ptr2
+.import popax
 
 .import gindex
 .import _ghost_freeze
 .import _bomb_x, _bomb_y, _bomb_phase, _bomb_timer, _bomb_mask, _bombs_left
+.import _crumbs_left
 .import _map, _player_x, _player_y, _ghost_x, _ghost_y
 .import _life, _outcome, _pickups_left, _gem_x, _gem_y, _score
 .import _origin_x, _seam_y, _color_a, _color_b
@@ -14,9 +16,13 @@
 .export _ghost_hold
 .export _walk3
 .export _button_down
+.export _name_arm
+.export _name_pad
+.export _unpack
 .export _bomb_tick
 .export _bomb_reset
 .export _sound_boom
+.export _crumb_status
 
 .segment "BSS"
 
@@ -50,6 +56,14 @@ hiss_on:    .res 1
 burning:    .res 1
 exploded:   .res 1
 tile:       .res 1
+box_n:      .res 1
+pick:       .res 1
+stick_now:  .res 1
+joy_fire:   .res 1
+grid_i:     .res 1
+pad_was:    .res 1
+name_fire:  .res 1
+gi:         .res 1
 
 .segment "BOMB"
 
@@ -209,6 +223,16 @@ touch_cell:
         lda bomb_job
         bne @later
         lda tile
+        cmp #88
+        bne @club
+        lda bomb_job
+        bne @club
+        lda _crumbs_left
+        cmp #5
+        bcs @club
+        inc _crumbs_left
+        jsr _crumb_status
+@club:  lda tile
         cmp #161
         beq @prot
         cmp #31
@@ -343,8 +367,16 @@ color_of:
         lda #0
         rts
 @heart: cmp #83
-        bne @g
+        bne @orb
         lda #2
+        rts
+@orb:   cmp #87
+        bne @club
+        lda #7
+        rts
+@club:  cmp #88
+        bne @g
+        lda #1
         rts
 @g:     lda #11
         rts
@@ -601,11 +633,9 @@ fuse_col:
         lda fcols,x
         rts
 
-try_place:
-        lda _bombs_left
-        bne @have
-        rts
-@have:  lda _player_x
+; Carry set when the cell under the player is on the map.
+locate:
+        lda _player_x
         clc
         adc #4
         sta l8
@@ -616,6 +646,7 @@ try_place:
         sta cx
         cmp #160
         bcc @cx
+        clc
         rts
 @cx:    lda _player_y
         clc
@@ -628,11 +659,99 @@ try_place:
         sta cy
         cmp #100
         bcc @cy
+        clc
         rts
 @cy:    lda cx
         sta cell_x
         lda cy
         sta cell_y
+        sec
+        rts
+
+try_place:
+        jsr locate
+        bcs @on
+        rts
+@on:    jsr map_ptr
+        ldy #0
+        lda (ptr1),y
+        cmp #88
+        bne @nb
+        jmp lift_crumb
+@nb:    jsr held_bomb
+        bcc @ask
+        jmp lift_bomb
+@ask:   lda _bombs_left
+        beq @nob
+        lda _crumbs_left
+        bne @box
+        jmp plant
+@nob:   lda _crumbs_left
+        beq @z
+        jmp plant_crumb
+@box:   jmp ask_which
+@z:     rts
+
+; Y = fuse slot when carry is set.
+held_bomb:
+        ldy #0
+@s:     lda _bomb_phase,y
+        cmp #1
+        bne @n
+        lda _bomb_x,y
+        cmp cx
+        bne @n
+        lda _bomb_y,y
+        cmp cy
+        bne @n
+        sec
+        rts
+@n:     iny
+        cpy #3
+        bcc @s
+        clc
+        rts
+
+lift_crumb:
+        jsr map_ptr
+        ldy #0
+        lda #102
+        sta (ptr1),y
+        sta sch
+        lda #11
+        sta sink
+        jsr show_xy
+        lda _crumbs_left
+        cmp #5
+        bcs @st
+        inc _crumbs_left
+@st:    jmp _crumb_status
+
+lift_bomb:
+        lda #0
+        sta _bomb_phase,y
+        sta _bomb_timer,y
+        jsr map_ptr
+        ldy #0
+        lda #102
+        sta (ptr1),y
+        sta sch
+        lda #11
+        sta sink
+        jsr show_xy
+        lda cell_y
+        beq @nf
+        dec cell_y
+        jsr show_real
+@nf:    lda _bombs_left
+        cmp #3
+        bcs @st
+        inc _bombs_left
+@st:    jmp _bomb_status
+
+plant:
+        jsr locate
+        bcc @out
         jsr map_ptr
         ldy #0
         lda (ptr1),y
@@ -640,7 +759,7 @@ try_place:
         beq @open
         cmp #32
         beq @open
-        rts
+@out:   rts
 @open:  ldy #0
 @chk:   lda _bomb_phase,y
         cmp #1
@@ -694,6 +813,188 @@ try_place:
         tax
         jmp paint_fuse
 
+plant_crumb:
+        jsr locate
+        bcc @out
+        jsr map_ptr
+        ldy #0
+        lda (ptr1),y
+        cmp #102
+        beq @ok
+        cmp #32
+        bne @out
+@ok:    lda #88
+        sta (ptr1),y
+        sta sch
+        lda #1
+        sta sink
+        jsr show_xy
+        dec _crumbs_left
+        jsr _crumb_status
+@out:   rts
+
+box_frame:
+        lda #250
+@w:     cmp $D012
+        bne @w
+@x:     cmp $D012
+        beq @x
+        rts
+
+_crumb_status:
+        lda #88
+        ldx #14
+        jsr stat_at
+        lda _crumbs_left
+        clc
+        adc #48
+        ldx #15
+        jmp stat_at
+
+stat_at:
+        sta $0400,x
+        sta $3800,x
+        lda #1
+        sta $D800,x
+        sta _color_a,x
+        sta _color_b,x
+        rts
+
+redraw_box:
+        lda #9
+        sta cy
+@row:   lda #13
+        sta cx
+@col:   lda cx
+        clc
+        adc _origin_x
+        sta cell_x
+        lda cy
+        sec
+        sbc #1
+        ldx _seam_y
+        cpx #$FF
+        bne @seam
+        sec
+        sbc #1
+        jmp @my
+@seam:  clc
+        adc _seam_y
+@my:    sta cell_y
+        jsr map_ptr
+        ldy #0
+        lda (ptr1),y
+        cmp #161
+        bne @tile
+        lda #160
+@tile:  sta sch
+        jsr color_of
+        sta sink
+        jsr show_xy
+        inc cx
+        lda cx
+        cmp #29
+        bcc @col
+        inc cy
+        lda cy
+        cmp #12
+        bcc @row
+        rts
+
+draw_box:
+        lda #0
+        sta box_n
+@ch:    lda box_n
+        lsr
+        lsr
+        lsr
+        lsr
+        tay
+        jsr row_off
+        lda box_n
+        and #15
+        clc
+        adc ptr1
+        sta ptr1
+        bcc @hi
+        inc ptr1+1
+@hi:    ldx box_n
+        lda pick
+        asl
+        asl
+        asl
+        asl
+        clc
+        adc #16
+        sta l8
+        lda box_text,x
+        cpx l8
+        bne @one
+        lda #62
+@one:   cpx #30
+        bne @two
+        lda _bombs_left
+        clc
+        adc #48
+@two:   cpx #46
+        bne @digit
+        lda _crumbs_left
+        clc
+        adc #48
+@digit: sta sch
+        lda #<$0400
+        ldx #>$0400
+        jsr poke
+        lda #<$3800
+        ldx #>$3800
+        jsr poke
+        lda #7
+        sta sch
+        lda #<$D800
+        ldx #>$D800
+        jsr poke
+        inc box_n
+        lda box_n
+        cmp #48
+        bcc @ch
+        rts
+
+poke:
+        jsr add_base
+        ldy #0
+        lda sch
+        sta (ptr2),y
+        rts
+
+row_off:
+        lda rowlo,y
+        sta ptr1
+        lda rowhi,y
+        sta ptr1+1
+        rts
+
+add_base:
+        clc
+        adc ptr1
+        sta ptr2
+        txa
+        adc ptr1+1
+        sta ptr2+1
+        rts
+
+rowlo:  .byte $75, $9D, $C5
+rowhi:  .byte $01, $01, $01
+
+; Arrow column is 16 or 32. Counts sit at 30 and 46.
+box_text:
+        .byte 32,4,18,15,16,32,23,8,9,3,8,63,32,32,32,32
+        .byte 32,32,2,15,13,2,32,32,32,32,32,32,32,32,48,32
+        .byte 32,32,2,18,5,1,4,3,18,21,13,2,32,32,48,32
+
+; Stick bits 0 and 1: nothing, up, down, both. Up keeps the bomb.
+drop_at:
+        .byte 0, 0, 1, 0
+
 ; Port 1 left shares the Control line, so a stick held that way
 ; looks like fire on every column. Sample the stick with no column
 ; selected and ignore those bits in the key scan. Space is bit 4 and
@@ -729,9 +1030,18 @@ _button_down:
 @p2:    lda #0
         sta $DC02
         lda $DC00
+        tay
         and #$10
-        bne @key
+        bne @nostk
         inc down
+@nostk: tya
+        and #3
+        sta stick_now
+        txa
+        and #3
+        and stick_now
+        eor #3
+        sta stick_now
 @key:   lda #$FF
         sta $DC02
         lda #$7F
@@ -755,6 +1065,7 @@ _button_down:
 @up:    lda #$FF
         sta $DC00
         cli
+        ldx stick_now
         lda down
         rts
 
@@ -944,5 +1255,270 @@ hy:     .byte 0, 0, 6, 6, 11, 11
 fcols:  .byte 2, 7, 1
 ink:    .byte 2, 4, 3, 5
 
+; Expand 1000 run-length bytes. Dest in A/X, source popped.
+_unpack:
+        sta ptr2
+        stx ptr2+1
+        jsr popax
+        sta ptr1
+        stx ptr1+1
+        lda #$E8
+        sta cx
+        lda #$03
+        sta cy
+@pair:  ldy #0
+        lda (ptr1),y
+        tax
+        iny
+        lda (ptr1),y
+        sta sch
+        clc
+        lda ptr1
+        adc #2
+        sta ptr1
+        bcc @fill
+        inc ptr1+1
+@fill:  ldy #0
+@byte:  lda sch
+        sta (ptr2),y
+        inc ptr2
+        bne @step
+        inc ptr2+1
+@step:  lda cx
+        bne @lo
+        dec cy
+@lo:    dec cx
+        lda cx
+        ora cy
+        beq @done
+        dex
+        bne @byte
+        jmp @pair
+@done:  rts
+
+; Directions in A, bits 0 to 3. Fire is left in joy_fire.
+; Both ports, active low, so a released line must not hide the other.
+joy_pad:
+        sei
+        lda #$FF
+        sta $DC02
+        sta $DC00
+        lda $DC01
+        and #$1F
+        sta l8
+        lda #0
+        sta $DC02
+        lda $DC00
+        and #$1F
+        and l8
+        eor #$1F
+        sta l8
+        lda #$FF
+        sta $DC02
+        sta $DC00
+        cli
+        lda #0
+        sta joy_fire
+        lda l8
+        and #$10
+        beq @dir
+        lda #1
+        sta joy_fire
+@dir:   lda l8
+        and #$0F
+        rts
+
+grid_ch:
+        .byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        .byte 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+        .byte 21, 22, 23, 24, 25, 26, 160, 31, 62
+
+; Walk the three rows. The marked letter is yellow.
+paint_grid:
+        lda #$D5
+        sta ptr1
+        lda #$06
+        sta ptr1+1
+        ldx #0
+        lda #10
+        sta cx
+@c:     lda grid_ch,x
+        ldy #0
+        sta (ptr1),y
+        lda #1
+        cpx grid_i
+        bne @ink
+        lda #7
+@ink:   pha
+        clc
+        lda ptr1
+        adc #$00
+        sta ptr2
+        lda ptr1+1
+        adc #$D4
+        sta ptr2+1
+        pla
+        sta (ptr2),y
+        inx
+        cpx #29
+        bcs @out
+        dec cx
+        beq @row
+        clc
+        lda ptr1
+        adc #3
+        sta ptr1
+        bcc @c
+        inc ptr1+1
+        jmp @c
+@row:   lda #10
+        sta cx
+        clc
+        lda ptr1
+        adc #13
+        sta ptr1
+        bcc @c
+        inc ptr1+1
+        jmp @c
+@out:   rts
+
+apply_move:
+        lda cy
+        and #4
+        beq @rt
+        lda grid_i
+        bne @dl
+        lda #28
+        bne @set
+@dl:    sec
+        sbc #1
+        jmp @set
+@rt:    lda cy
+        and #8
+        beq @up
+        lda grid_i
+        cmp #28
+        bcc @ir
+        lda #0
+        beq @set
+@ir:    clc
+        adc #1
+        jmp @set
+@up:    lda cy
+        and #1
+        beq @dn
+        lda grid_i
+        sec
+        sbc #10
+        bcs @fit
+        adc #30
+@fit:   cmp #29
+        bcc @set
+        lda #28
+        bne @set
+@dn:    lda cy
+        and #2
+        beq @out
+        lda grid_i
+        clc
+        adc #10
+        cmp #29
+        bcc @set
+        sec
+        sbc #30
+        cmp #29
+        bcc @set
+        lda #28
+@set:   sta grid_i
+@out:   rts
+
+chosen:
+        ldy grid_i
+        lda grid_ch,y
+        cmp #31
+        bne @sp
+        lda #8
+        rts
+@sp:    cmp #160
+        bne @en
+        lda #32
+        rts
+@en:    cmp #62
+        bne @let
+        lda #13
+        rts
+@let:   clc
+        adc #64
+        rts
+
+_name_arm:
+        lda #0
+        sta grid_i
+        jsr joy_pad
+        sta pad_was
+        lda joy_fire
+        sta name_fire
+        jmp paint_grid
+
+_name_pad:
+        jsr joy_pad
+        sta cx
+        lda joy_fire
+        beq @nof
+        lda cx
+        sta pad_was
+        lda name_fire
+        bne @none
+        lda #1
+        sta name_fire
+        jmp chosen
+@nof:   lda #0
+        sta name_fire
+        lda cx
+        eor pad_was
+        and cx
+        sta cy
+        lda cx
+        sta pad_was
+        lda cy
+        beq @none
+        jsr apply_move
+        jsr paint_grid
+@none:  lda #0
+        rts
+
 .segment "BSS"
 covered_f:  .res 1
+
+; Bomb is the default. Up keeps it, down moves to the breadcrumb.
+; The click that opened the box is waited out first.
+.segment "CODE"
+
+ask_which:
+        lda #0
+        sta pick
+        jsr draw_box
+@rel:   jsr _button_down
+        bne @rel
+@loop:  jsr box_frame
+        jsr draw_box
+        jsr _button_down
+        bne @go
+        txa
+        and #3
+        beq @loop
+        tay
+        lda drop_at,y
+        sta pick
+        jmp @loop
+@go:    ldx pick
+        lda _bombs_left,x
+        php
+        jsr redraw_box
+        plp
+        beq @out
+        lda pick
+        bne @crumb
+        jmp plant
+@crumb: jmp plant_crumb
+@out:   rts

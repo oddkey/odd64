@@ -302,7 +302,7 @@ irq_top:
         sta $d021
         lda _sprites_on
         beq @spr
-        lda #$3F                ; player, ghosts, diamond map
+        lda #$FF                ; player, ghosts, diamond map, devil, girl
 @spr:   sta $d015
         ; Writing $D011 above clears the raster latch. Arm the next
         ; interrupt for line 0 only after this line has passed, or the

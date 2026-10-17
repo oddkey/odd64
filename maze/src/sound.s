@@ -10,10 +10,11 @@
 ; each marker is also two rows tall and stays square when expanded.
 
 .import _gem_x, _gem_y, _pickups_left, _time_left, _score
+.import _time_bonus
 .import _bomb_tick
 .import _player_x, _player_y, _ghost_x, _ghost_y
 .import popa
-.importzp sp
+.importzp sp, ptr1
 
 .export _sound_init
 .export _sound_tick
@@ -28,10 +29,16 @@
 .export _plot_minimap
 .export _note_gem
 .export _door_tick
+.export _sound_trumpet
+.export _sound_home
+.export _sound_boulder
+.export _sound_boulder_off
+.export _sound_graze
 
 ; cc65 puts this stack at the end of MAIN, which is the second screen.
-; It grows down through the program. Bank out BASIC and park the stack
-; at $C000 before any C function runs.
+; It grows down through the program. Bank out BASIC and Kernal and park
+; the stack at $D000. The first push lands at $CFFF. The help text
+; lives at $E000, past the I/O window, so the stack cannot reach it.
 .constructor move_c_stack, 1
 .segment "CODE"
 move_c_stack:
@@ -39,7 +46,7 @@ move_c_stack:
         lda #$35
         sta $01
         lda #$00
-        ldx #$C0
+        ldx #$D0
         sta sp
         stx sp+1
         rts
@@ -58,6 +65,9 @@ mood_i:     .res 1
 work:       .res 1
 hold:       .res 1
 ink:        .res 1
+boulder_on: .res 1
+boulder_t:  .res 1
+rise_on:    .res 1
 
 .segment "SOUND"
 
@@ -77,6 +87,8 @@ _sound_init:
         sta fan_i
         sta fan_t
         sta mood_on
+        sta boulder_on
+        sta rise_on
         lda #$01
         sta $D405
         lda #$09
@@ -344,6 +356,8 @@ drone:  .byte $9C, $A0, $A4, $A8, $AC, $B0, $B8, $C0
         .byte $B8, $B0, $AC, $A8, $A4, $A0, $9C, $94
 
 _sound_tick:
+        jsr boulder_tick
+        jsr rise_tick
         lda siren_t
         beq @fan
         dec siren_t
@@ -647,3 +661,205 @@ row_slot:
 mask:   .byte $C0, $30, $0C, $03
 wobble: .byte $06, $0A, $10, $18, $10, $0A, $06, $04
 notes:  .byte $16, $1C, $22, $2C, $38, $2C, $38, $00
+
+rumble: .byte $40, $90, $20, $C0, $60, $30, $A0, $50
+
+; A rolling noise while the devil is a ball. Voice 1, so footsteps
+; give way to it until the charge ends.
+_sound_boulder:
+        lda #1
+        sta boulder_on
+        lda #$00
+        sta $D405
+        lda #$A8
+        sta $D406
+        rts
+
+_sound_boulder_off:
+        lda #0
+        sta boulder_on
+        lda #$80
+        sta $D404
+        rts
+
+boulder_tick:
+        lda boulder_on
+        beq @out
+        inc boulder_t
+        lda boulder_t
+        and #$07
+        tay
+        lda rumble,y
+        sta $D400
+        lda #$10
+        sta $D401
+        lda #$81
+        sta $D404
+@out:   rts
+
+; A quiet touch. Voice 2, lower than the heart pling.
+_sound_graze:
+        lda #$10
+        sta $D40B
+        lda #$00
+        sta $D407
+        lda #$18
+        sta $D408
+        lda #$11
+        sta $D40B
+        rts
+
+; Rising blips while seconds are being poured onto the clock.
+; Voice 3 stays with the siren and the exit tone when those are busy.
+rise_tick:
+        lda _time_bonus
+        beq @off
+        lda door_on
+        bne @out
+        lda siren_t
+        bne @out
+        lda rise_on
+        bne @pitch
+        lda #1
+        sta rise_on
+        lda #$00
+        sta $D413
+        lda #$F2
+        sta $D414
+@pitch: lda _time_bonus
+        and #$03
+        bne @freq
+        lda #$10
+        sta $D412
+        lda #$11
+        sta $D412
+@freq:  lda _time_bonus
+        eor #$FF
+        asl
+        asl
+        sta $D40E
+        lda #$08
+        sta $D40F
+@out:   rts
+@off:   lda rise_on
+        beq @out
+        lda #0
+        sta rise_on
+        lda door_on
+        ora siren_t
+        bne @out
+        lda #$10
+        sta $D412
+        rts
+
+; X/Y = note table (lo, hi, frames, ... , 0). A = gate waveform.
+; Voice 2 plays the same line an octave down, which is what a second
+; trumpet would do on a bugle call.
+play_tune:
+        sta hold
+        stx ptr1
+        sty ptr1+1
+        lda #$0F
+        sta $D418
+        lda #$00
+        sta $D404
+        sta $D40B
+        sta $D412
+        sta boulder_on
+        sta rise_on
+        lda #$06
+        sta $D405
+        sta $D40C
+        lda #$80
+        sta $D406
+        sta $D40D
+        lda #$00
+        sta $D402
+        sta $D409
+        lda #$04
+        sta $D403
+        sta $D40A
+        ldy #0
+@note:  lda (ptr1),y
+        beq @done
+        sta $D400
+        sta work
+        iny
+        lda (ptr1),y
+        sta $D401
+        lsr
+        sta $D408
+        lda work
+        ror
+        sta $D407
+        iny
+        lda (ptr1),y
+        tax
+        tya
+        pha
+        lda hold
+        sta $D404
+        sta $D40B
+        txa
+        jsr sad_wait
+        pla
+        tay
+        lda hold
+        and #$FE
+        sta $D404
+        sta $D40B
+        iny
+        bne @note
+@done:  lda #$00
+        sta $D404
+        sta $D40B
+        rts
+
+; Bugle charge: the harmonic series a field trumpet can actually play.
+charge_notes:
+        .byte $CE, $22, 8
+        .byte $DA, $2B, 8
+        .byte $27, $34, 8
+        .byte $9C, $45, 14
+        .byte $DA, $2B, 8
+        .byte $27, $34, 8
+        .byte $9C, $45, 8
+        .byte $B5, $57, 16
+        .byte $27, $34, 8
+        .byte $DA, $2B, 8
+        .byte $CE, $22, 8
+        .byte $14, $1A, 8
+        .byte $CE, $22, 32
+        .byte 0
+
+; A brighter major phrase for the ride home.
+home_notes:
+        .byte $CE, $22, 8
+        .byte $DA, $2B, 8
+        .byte $27, $34, 8
+        .byte $9C, $45, 10
+        .byte $DA, $2B, 6
+        .byte $27, $34, 6
+        .byte $9C, $45, 6
+        .byte $B5, $57, 14
+        .byte $27, $34, 8
+        .byte $8A, $3A, 8
+        .byte $27, $34, 8
+        .byte $DA, $2B, 8
+        .byte $CE, $22, 8
+        .byte $12, $27, 8
+        .byte $DA, $2B, 8
+        .byte $CE, $22, 36
+        .byte 0
+
+_sound_trumpet:
+        lda #$41
+        ldx #<charge_notes
+        ldy #>charge_notes
+        jmp play_tune
+
+_sound_home:
+        lda #$21
+        ldx #<home_notes
+        ldy #>home_notes
+        jmp play_tune
