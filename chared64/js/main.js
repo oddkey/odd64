@@ -36,7 +36,13 @@ import { createSession } from "./session.js";
 import { contentBoxWidth } from "./render.js";
 import { mountTiles } from "./tile-panel.js";
 import { mountSprite } from "./sprite-panel.js";
-import { actorById, moveActor, undoSprite } from "./sprites.js";
+import {
+  SPRITE_FRAME_CLIPBOARD_STORAGE_KEY,
+  actorById,
+  moveActor,
+  parseSpriteFrameClipboard,
+  undoSprite,
+} from "./sprites.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -44,7 +50,7 @@ const session = createSession(createBlankProject());
 const map = mountMap(session);
 const editor = mountEditor(session);
 const tiles = mountTiles(session);
-const sprites = mountSprite(session, { setStatus });
+const sprites = mountSprite(session, { setStatus, writeSpriteClipboard, readSpriteClipboard });
 
 const nameInput = $("project-name");
 const status = $("status");
@@ -375,6 +381,34 @@ function copySelection() {
   setStatus(`Copied ${formatCopy(clip)}.`);
 }
 
+function writeSpriteClipboard(clip) {
+  const text = JSON.stringify(clip);
+  try {
+    localStorage.setItem(SPRITE_FRAME_CLIPBOARD_STORAGE_KEY, text);
+  } catch {
+    /* private mode */
+  }
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+}
+
+async function readSpriteClipboard() {
+  if (navigator.clipboard?.readText) {
+    try {
+      const parsed = parseSpriteFrameClipboard(await navigator.clipboard.readText());
+      if (parsed) return parsed;
+    } catch {
+      /* permission or empty */
+    }
+  }
+  try {
+    return parseSpriteFrameClipboard(localStorage.getItem(SPRITE_FRAME_CLIPBOARD_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
 function writeScreenClipboard(clip) {
   const text = JSON.stringify(clip);
   try {
@@ -517,12 +551,19 @@ try {
 } catch {
   session.ui.screenClipboard = null;
 }
+try {
+  session.ui.spriteClipboard = parseSpriteFrameClipboard(localStorage.getItem(SPRITE_FRAME_CLIPBOARD_STORAGE_KEY));
+} catch {
+  session.ui.spriteClipboard = null;
+}
 
 window.addEventListener("storage", (event) => {
   if (event.key === CLIPBOARD_STORAGE_KEY) {
     session.ui.clipboard = parseGlyphClipboard(event.newValue);
   } else if (event.key === SCREEN_CLIPBOARD_STORAGE_KEY) {
     session.ui.screenClipboard = parseScreenClipboard(event.newValue);
+  } else if (event.key === SPRITE_FRAME_CLIPBOARD_STORAGE_KEY) {
+    session.ui.spriteClipboard = parseSpriteFrameClipboard(event.newValue);
   } else {
     return;
   }
@@ -838,12 +879,14 @@ window.addEventListener("keydown", (event) => {
   if (command && key === "c") {
     event.preventDefault();
     if (screenKeys()) copyScreen();
+    else if (session.ui.view === "sprites") sprites.copyFrame();
     else copySelection();
     return;
   }
   if (command && key === "v") {
     event.preventDefault();
     if (screenKeys()) pasteScreen();
+    else if (session.ui.view === "sprites") sprites.pasteFrame();
     else pasteSelection();
     return;
   }

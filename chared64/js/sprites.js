@@ -1,8 +1,12 @@
+import { sameBytes } from "./project.js";
+
 export const SPRITE_COUNT = 256;
 export const SPRITE_BYTES = 64;
 export const SPRITE_PIXEL_W = 24;
 export const SPRITE_PIXEL_H = 21;
-export const SPRITE_ZOOMS = [4, 6, 8, 12, 16];
+export const SPRITE_ZOOMS = [4, 6, 8, 12, 16, 24, 32, 48, 64];
+export const SPRITE_FRAME_CLIPBOARD_KIND = "chared64-sprite-frame";
+export const SPRITE_FRAME_CLIPBOARD_STORAGE_KEY = "chared64.spriteFrameClipboard";
 
 export const ACTION_PRESETS = [
   { type: "walking", name: "Walking", frames: 3 },
@@ -200,15 +204,37 @@ export function paintValue(actor, layer, paint) {
   return null;
 }
 
+const SIDE_DIRECTIONS = new Set(["left", "right", "w", "e"]);
+
 export function directionForKey(setId, key) {
   const cell = directionSet(setId)?.cells.find((entry) => entry.key === key);
   return cell ? cell.id : null;
 }
 
+export function directionsFor(directionsId, actionType) {
+  const set = directionSet(directionsId);
+  if (!set) return [];
+  if (actionType !== "climbing") return set.cells;
+  const kept = set.cells.filter((cell) => !SIDE_DIRECTIONS.has(cell.id));
+  if (kept.length > 0) return kept;
+  return [{ id: "climb", label: "Climb", col: 0, row: 0, key: null }];
+}
+
+export function directionForAction(actor, action, directionId) {
+  const dirs = directionsFor(actor.directions, action?.type);
+  if (dirs.some((cell) => cell.id === directionId)) return directionId;
+  return dirs[0].id;
+}
+
 export function displayPose(actor, ui) {
   const pose = ui?.spritePose;
-  if (pose && pose.actorId === actor.id && slotIndices(actor, pose.actionId, pose.directionId, pose.frame)) {
-    return pose;
+  if (pose && pose.actorId === actor.id) {
+    const action = actor.actions.find((entry) => entry.id === pose.actionId) || actor.actions[0];
+    const directionId = directionForAction(actor, action, pose.directionId);
+    const frame = Math.min(Math.max(pose.frame || 0, 0), action.frames - 1);
+    if (slotIndices(actor, action.id, directionId, frame)) {
+      return { actorId: actor.id, actionId: action.id, directionId, frame };
+    }
   }
   const placed = actor.placement;
   if (placed && slotIndices(actor, placed.actionId, placed.directionId, placed.frame)) {
@@ -220,7 +246,7 @@ export function displayPose(actor, ui) {
     };
   }
   const action = actor.actions[0];
-  const direction = directionSet(actor.directions).cells[0];
+  const direction = directionsFor(actor.directions, action.type)[0];
   return {
     actorId: actor.id,
     actionId: action.id,
@@ -261,9 +287,10 @@ export function eachVisibleSprite(project, actor, pose, visit) {
 
 export function specImageCount(spec) {
   const layers = spec.layers === 2 ? 2 : 1;
-  const dirs = directionSet(spec.directions)?.cells.length ?? 0;
-  const frames = (spec.actions || []).reduce((sum, action) => sum + action.frames, 0);
-  return spec.gridW * spec.gridH * layers * dirs * frames;
+  const cells = spec.gridW * spec.gridH * layers;
+  return (spec.actions || []).reduce((sum, action) => {
+    return sum + action.frames * directionsFor(spec.directions, action.type).length * cells;
+  }, 0);
 }
 
 export function createActor(project, spec) {
@@ -335,7 +362,8 @@ export function addActorAction(project, actor, spec) {
     return { ok: false, error: "That action name is already used." };
   }
   const frames = clampFrames(spec.frames, type === "custom" ? 1 : preset.frames);
-  const need = frames * directionSet(actor.directions).cells.length * cellCount(actor) * actor.layers;
+  const actionDirs = directionsFor(actor.directions, type);
+  const need = frames * actionDirs.length * cellCount(actor) * actor.layers;
   const free = SPRITE_COUNT - imagesUsed(project);
   if (need > free) {
     return {
@@ -356,7 +384,7 @@ export function addActorAction(project, actor, spec) {
   const allocated = takeSprites(project, need);
   let cursor = 0;
   const per = cellCount(actor) * actor.layers;
-  for (const direction of directionSet(actor.directions).cells) {
+  for (const direction of actionDirs) {
     actor.slots[action.id][direction.id] = [];
     for (let frame = 0; frame < frames; frame += 1) {
       actor.slots[action.id][direction.id].push(allocated.slice(cursor, cursor + per));
@@ -384,9 +412,10 @@ export function setActionFrames(project, actor, actionId, frames) {
     return { ok: false, error: `Frame count must be a whole number from 1 to ${FRAME_MAX}.` };
   }
   if (frames === action.frames) return { ok: true, changed: false };
+  const dirs = directionsFor(actor.directions, action.type);
   if (frames > action.frames) {
     const extra = frames - action.frames;
-    const need = extra * directionSet(actor.directions).cells.length * cellCount(actor) * actor.layers;
+    const need = extra * dirs.length * cellCount(actor) * actor.layers;
     const free = SPRITE_COUNT - imagesUsed(project);
     if (need > free) {
       return { ok: false, error: `Those frames need ${need} sprite images and ${free} are free.` };
@@ -394,7 +423,7 @@ export function setActionFrames(project, actor, actionId, frames) {
     const allocated = takeSprites(project, need);
     let cursor = 0;
     const per = cellCount(actor) * actor.layers;
-    for (const direction of directionSet(actor.directions).cells) {
+    for (const direction of dirs) {
       for (let n = 0; n < extra; n += 1) {
         actor.slots[action.id][direction.id].push(allocated.slice(cursor, cursor + per));
         cursor += per;
@@ -403,7 +432,6 @@ export function setActionFrames(project, actor, actionId, frames) {
     action.frames = frames;
     return { ok: true, changed: true };
   }
-  const dirs = directionSet(actor.directions).cells;
   for (const direction of dirs) {
     const frameset = actor.slots[action.id][direction.id];
     const dropped = frameset.splice(frames);
@@ -466,8 +494,8 @@ export function clearPlacement(actor) {
 }
 
 export function moveActor(project, actor, key, pose) {
-  const directionId = directionForKey(actor.directions, key);
-  if (!directionId || !actor.placement) return null;
+  const wanted = directionForKey(actor.directions, key);
+  if (!wanted || !actor.placement) return null;
   const step = 4;
   const delta = {
     ArrowLeft: [-step, 0],
@@ -483,6 +511,7 @@ export function moveActor(project, actor, key, pose) {
   const action = actor.actions.find((entry) => entry.type === "walking")
     || actor.actions.find((entry) => entry.id === pose?.actionId)
     || actor.actions[0];
+  const directionId = directionForAction(actor, action, wanted);
   const same = actor.placement.directionId === directionId
     && actor.placement.actionId === action.id;
   const frame = same ? (actor.placement.frame + 1) % action.frames : 0;
@@ -510,6 +539,218 @@ export function undoSprite(project) {
   if (!entry) return false;
   for (const cell of entry) spriteBytes(project, cell.index).set(cell.bytes);
   return true;
+}
+
+function shownPose(actor, pose) {
+  if (pose?.actorId === actor.id) return displayPose(actor, { spritePose: pose });
+  if (pose && slotIndices(actor, pose.actionId, pose.directionId, pose.frame)) return pose;
+  return displayPose(actor, null);
+}
+
+export function framePixelSize(actor) {
+  return {
+    w: actor.grid.width * SPRITE_PIXEL_W,
+    h: actor.grid.height * SPRITE_PIXEL_H,
+  };
+}
+
+function locateFramePixel(actor, indices, layer, x, y) {
+  const gx = Math.floor(x / SPRITE_PIXEL_W);
+  const gy = Math.floor(y / SPRITE_PIXEL_H);
+  if (gx < 0 || gy < 0 || gx >= actor.grid.width || gy >= actor.grid.height) return null;
+  const lx = x - gx * SPRITE_PIXEL_W;
+  const ly = y - gy * SPRITE_PIXEL_H;
+  const index = indices[(layer * actor.grid.height + gy) * actor.grid.width + gx];
+  return { index, lx, ly, mode: layerMode(actor, layer) };
+}
+
+function readFramePixel(project, actor, indices, layer, x, y) {
+  const hit = locateFramePixel(actor, indices, layer, x, y);
+  if (!hit) return 0;
+  const bytes = spriteBytes(project, hit.index);
+  if (hit.mode === "hires") return getSpritePixel(bytes, "hires", hit.lx, hit.ly);
+  return getSpritePixel(bytes, "multi", hit.lx >> 1, hit.ly);
+}
+
+function writeFramePixel(project, actor, indices, layer, x, y, value) {
+  const hit = locateFramePixel(actor, indices, layer, x, y);
+  if (!hit) return;
+  const bytes = spriteBytes(project, hit.index);
+  if (hit.mode === "hires") setSpritePixel(bytes, "hires", hit.lx, hit.ly, value === 1 ? 1 : 0);
+  else setSpritePixel(bytes, "multi", hit.lx >> 1, hit.ly, value & 3);
+}
+
+export function clipSpriteRect(actor, rect) {
+  if (!rect || !Number.isInteger(rect.x) || !Number.isInteger(rect.y)) return null;
+  if (!Number.isInteger(rect.width) || !Number.isInteger(rect.height)) return null;
+  if (rect.width < 1 || rect.height < 1) return null;
+  const frame = framePixelSize(actor);
+  const x0 = Math.max(0, rect.x);
+  const y0 = Math.max(0, rect.y);
+  const x1 = Math.min(frame.w, rect.x + rect.width);
+  const y1 = Math.min(frame.h, rect.y + rect.height);
+  if (x1 <= x0 || y1 <= y0) return null;
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+}
+
+function poseIndices(actor, pose) {
+  const shown = shownPose(actor, pose);
+  const indices = slotIndices(actor, shown.actionId, shown.directionId, shown.frame);
+  return indices ? { shown, indices } : null;
+}
+
+function readSelectionPlanes(project, actor, indices, rect) {
+  const planes = [];
+  for (let layer = 0; layer < actor.layers; layer += 1) {
+    const pixels = [];
+    for (let y = 0; y < rect.height; y += 1) {
+      for (let x = 0; x < rect.width; x += 1) {
+        pixels.push(readFramePixel(project, actor, indices, layer, rect.x + x, rect.y + y));
+      }
+    }
+    planes.push({ mode: layerMode(actor, layer), pixels });
+  }
+  return planes;
+}
+
+function clearSelectionPixels(project, actor, indices, rect) {
+  for (let layer = 0; layer < actor.layers; layer += 1) {
+    for (let y = 0; y < rect.height; y += 1) {
+      for (let x = 0; x < rect.width; x += 1) {
+        writeFramePixel(project, actor, indices, layer, rect.x + x, rect.y + y, 0);
+      }
+    }
+  }
+}
+
+function writeSelectionPlanes(project, actor, indices, origin, planes, width, height) {
+  const layers = Math.min(actor.layers, planes.length);
+  for (let layer = 0; layer < layers; layer += 1) {
+    const pixels = planes[layer].pixels;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        writeFramePixel(project, actor, indices, layer, origin.x + x, origin.y + y, pixels[y * width + x]);
+      }
+    }
+  }
+}
+
+export function copySpriteSelection(project, actor, pose, rect) {
+  const live = poseIndices(actor, pose);
+  const area = clipSpriteRect(actor, rect);
+  if (!live || !area) return null;
+  const planes = readSelectionPlanes(project, actor, live.indices, area);
+  return {
+    kind: SPRITE_FRAME_CLIPBOARD_KIND,
+    width: area.width,
+    height: area.height,
+    layers: planes.length,
+    planes,
+  };
+}
+
+export function parseSpriteFrameClipboard(raw) {
+  let data = raw;
+  if (typeof raw === "string") {
+    if (!raw) return null;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  if (data.kind !== SPRITE_FRAME_CLIPBOARD_KIND) return null;
+  const { width, height, layers } = data;
+  const maxW = 8 * SPRITE_PIXEL_W;
+  const maxH = 8 * SPRITE_PIXEL_H;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || !Number.isInteger(layers)) return null;
+  if (width < 1 || height < 1 || width > maxW || height > maxH || (layers !== 1 && layers !== 2)) return null;
+  if (!Array.isArray(data.planes) || data.planes.length !== layers) return null;
+  const planes = [];
+  for (const plane of data.planes) {
+    if (!plane || (plane.mode !== "hires" && plane.mode !== "multi")) return null;
+    if (!Array.isArray(plane.pixels) || plane.pixels.length !== width * height) return null;
+    const pixels = [];
+    for (const value of plane.pixels) {
+      if (!Number.isInteger(value) || value < 0 || value > 3) return null;
+      pixels.push(value);
+    }
+    planes.push({ mode: plane.mode, pixels });
+  }
+  return { kind: SPRITE_FRAME_CLIPBOARD_KIND, width, height, layers, planes };
+}
+
+export function snapshotPose(project, actor, pose) {
+  const live = poseIndices(actor, pose);
+  if (!live) return null;
+  return live.indices.map((index) => ({ index, bytes: spriteBytes(project, index).slice() }));
+}
+
+export function restoreSpriteSnapshot(project, snapshots) {
+  for (const shot of snapshots) spriteBytes(project, shot.index).set(shot.bytes);
+}
+
+export function pasteSpriteSelection(project, actor, pose, x, y, clip) {
+  const source = parseSpriteFrameClipboard(clip);
+  const live = poseIndices(actor, pose);
+  if (!source || !live) return null;
+  const frame = framePixelSize(actor);
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= frame.w || y >= frame.h) return null;
+  const width = Math.min(source.width, frame.w - x);
+  const height = Math.min(source.height, frame.h - y);
+  const snapshots = snapshotPose(project, actor, pose);
+  const planes = source.planes.map((plane) => {
+    const pixels = [];
+    for (let row = 0; row < height; row += 1) {
+      for (let col = 0; col < width; col += 1) pixels.push(plane.pixels[row * source.width + col]);
+    }
+    return { mode: plane.mode, pixels };
+  });
+  writeSelectionPlanes(project, actor, live.indices, { x, y }, planes, width, height);
+  const undo = snapshots.filter((shot) => !sameBytes(spriteBytes(project, shot.index), shot.bytes));
+  if (!undo.length) return null;
+  pushSpriteUndo(project, undo);
+  return { x, y, width, height };
+}
+
+export function relocateSpriteSelection(project, actor, pose, rect, destX, destY) {
+  const live = poseIndices(actor, pose);
+  const area = clipSpriteRect(actor, rect);
+  if (!live || !area) return null;
+  const frame = framePixelSize(actor);
+  const x = clamp(Math.trunc(destX), 0, frame.w - area.width);
+  const y = clamp(Math.trunc(destY), 0, frame.h - area.height);
+  if (x === area.x && y === area.y) return area;
+  const planes = readSelectionPlanes(project, actor, live.indices, area);
+  clearSelectionPixels(project, actor, live.indices, area);
+  writeSelectionPlanes(project, actor, live.indices, { x, y }, planes, area.width, area.height);
+  return { x, y, width: area.width, height: area.height };
+}
+
+export function moveSpriteSelection(project, actor, pose, rect, destX, destY) {
+  const snapshots = snapshotPose(project, actor, pose);
+  if (!snapshots) return null;
+  const landed = relocateSpriteSelection(project, actor, pose, rect, destX, destY);
+  if (!landed) return null;
+  const undo = snapshots.filter((shot) => !sameBytes(spriteBytes(project, shot.index), shot.bytes));
+  pushSpriteUndo(project, undo);
+  return landed;
+}
+
+export function clearSpriteFrame(project, actor, pose) {
+  const shown = shownPose(actor, pose);
+  const indices = slotIndices(actor, shown.actionId, shown.directionId, shown.frame);
+  if (!indices) return false;
+  const undo = [];
+  for (const index of indices) {
+    const current = spriteBytes(project, index);
+    if (current.every((value) => value === 0)) continue;
+    undo.push({ index, bytes: current.slice() });
+    current.fill(0);
+  }
+  pushSpriteUndo(project, undo);
+  return undo.length > 0;
 }
 
 export function serializeSprites(project) {
@@ -601,8 +842,8 @@ function parseActor(raw, seenIds, seenImages) {
     const block = raw.slots?.[action.id];
     if (!block || typeof block !== "object") return fail(`Action ${action.name} is missing its sprites.`);
     slots[action.id] = {};
-    for (const direction of directions.cells) {
-      const frames = block[direction.id];
+    for (const direction of directionsFor(raw.directions, action.type)) {
+      const frames = climbingFrames(block, action.type, direction.id);
       if (!Array.isArray(frames) || frames.length !== action.frames) {
         return fail(`Action ${action.name} is missing the ${direction.label} frames.`);
       }
@@ -685,6 +926,15 @@ function parseAction(action, actionIds) {
   };
 }
 
+function climbingFrames(block, actionType, directionId) {
+  if (Array.isArray(block[directionId])) return block[directionId];
+  if (actionType === "climbing" && directionId === "climb") {
+    if (Array.isArray(block.left)) return block.left;
+    if (Array.isArray(block.right)) return block.right;
+  }
+  return null;
+}
+
 function parsePlacement(raw, actions, directions) {
   if (!raw || typeof raw !== "object") return fail("A placement must be an object.");
   if (!Number.isInteger(raw.x) || !Number.isInteger(raw.y)) return fail("A placement needs whole-pixel coordinates.");
@@ -692,7 +942,11 @@ function parsePlacement(raw, actions, directions) {
     return fail("A placement is outside the screen.");
   }
   if (!actions.some((action) => action.id === raw.actionId)) return fail("A placement points at a missing action.");
-  if (!directions.cells.some((cell) => cell.id === raw.directionId)) {
+  const known = new Set();
+  for (const action of actions) {
+    for (const cell of directionsFor(directions.id, action.type)) known.add(cell.id);
+  }
+  if (!known.has(raw.directionId)) {
     return fail("A placement points at a missing direction.");
   }
   const action = actions.find((entry) => entry.id === raw.actionId);
@@ -771,7 +1025,7 @@ function fillSlots(actor, allocated) {
   const per = cellCount(actor) * actor.layers;
   for (const action of actor.actions) {
     actor.slots[action.id] = {};
-    for (const direction of directionSet(actor.directions).cells) {
+    for (const direction of directionsFor(actor.directions, action.type)) {
       actor.slots[action.id][direction.id] = [];
       for (let frame = 0; frame < action.frames; frame += 1) {
         actor.slots[action.id][direction.id].push(allocated.slice(cursor, cursor + per));
@@ -822,7 +1076,7 @@ function applyTemplates(project, actor, onlyActionId) {
   for (const action of actor.actions) {
     if (onlyActionId && action.id !== onlyActionId) continue;
     if (action.type === "custom") continue;
-    for (const direction of directionSet(actor.directions).cells) {
+    for (const direction of directionsFor(actor.directions, action.type)) {
       for (let frame = 0; frame < action.frames; frame += 1) {
         stampTemplate(project, actor, action, direction.id, frame);
       }
@@ -898,7 +1152,7 @@ function drawPose(plot, type, directionId, frame, frames) {
 
 function poseView(directionId) {
   if (directionId === "n" || directionId === "up") return "back";
-  if (directionId === "s" || directionId === "down" || directionId === "idle") return "front";
+  if (directionId === "s" || directionId === "down" || directionId === "idle" || directionId === "climb") return "front";
   return "side";
 }
 

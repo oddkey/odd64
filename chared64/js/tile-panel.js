@@ -31,6 +31,21 @@ export function mountTiles(session) {
     return point && point.x >= 0 && point.y >= 0 && point.x < project.tileWidth && point.y < project.tileHeight;
   }
 
+  function pixelAt(event) {
+    const rect = scroller.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    if (x < 0 || y < 0 || x >= scroller.clientWidth || y >= scroller.clientHeight) return null;
+    const zoom = session.project.zoom.tiles;
+    const pixel = {
+      x: Math.floor((x + scroller.scrollLeft) / zoom),
+      y: Math.floor((y + scroller.scrollTop) / zoom),
+    };
+    const project = session.project;
+    if (pixel.x < 0 || pixel.y < 0 || pixel.x >= project.tileWidth * 8 || pixel.y >= project.tileHeight * 8) return null;
+    return pixel;
+  }
+
   function remember(project, point, seen) {
     if (!inBounds(project, point)) return;
     const i = point.y * project.tileWidth + point.x;
@@ -216,11 +231,10 @@ export function mountTiles(session) {
   scroller.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     if (session.ui.view === "sprites" && session.ui.spritePlaceArmed) {
-      const point = cellAt(event);
+      const pixel = pixelAt(event);
       const actor = actorById(session.project, session.ui.spriteActorId);
-      if (actor && inBounds(session.project, point)) {
-        placeActor(actor, point.x * 8, point.y * 8, session.ui.spritePose);
-        session.ui.spritePlaceArmed = false;
+      if (actor && pixel) {
+        placeActor(actor, pixel.x, pixel.y, session.ui.spritePose);
         session.ui.dirty = true;
         session.ui.lastSurface = "tile";
         session.emit("sprites");

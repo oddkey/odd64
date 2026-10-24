@@ -15,6 +15,7 @@ export function createSession(project) {
     fitEditor: false,
     touchDraw: false,
     clipboard: null,
+    spriteClipboard: null,
     view: "characters",
     spriteActorId: null,
     spritePose: null,
@@ -23,6 +24,8 @@ export function createSession(project) {
     spriteLayer: 0,
     spriteCell: { x: 0, y: 0 },
     spritePaint: { kind: "ink", color: 14 },
+    spriteTool: "pen",
+    spriteSelection: null,
   };
 
   function emit(reason) {
@@ -63,6 +66,8 @@ export function createSession(project) {
       ui.spriteLayer = 0;
       ui.spriteCell = { x: 0, y: 0 };
       ui.spritePaint = { kind: "ink", color: 14 };
+      ui.spriteTool = "pen";
+      ui.spriteSelection = null;
       emit("project");
     },
     mutate(reason, fn) {

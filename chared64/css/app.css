@@ -301,6 +301,7 @@ input[type="number"] { width: 4.5rem; }
   align-items: center;
   gap: 8px;
 }
+.sprite-tools { display: flex; align-items: center; gap: 8px; }
 .sprite-canvas-wrap { overflow: auto; max-width: 100%; }
 .wizard { display: flex; flex-direction: column; gap: 12px; max-width: 52rem; }
 .wizard h3 { margin: 0; font-size: 15px; font-weight: 650; }
@@ -316,6 +317,7 @@ input[type="number"] { width: 4.5rem; }
 .direction-pad { display: grid; gap: 4px; width: max-content; }
 .direction-pad button { min-width: 4.75rem; }
 .direction-pad button[aria-pressed="true"] { border-color: var(--accent); background: #2c3d66; }
+#sprite-place[aria-pressed="true"] { border-color: var(--accent); background: #2c3d66; }
 .sprite-target {
   display: flex;
   flex-wrap: wrap;

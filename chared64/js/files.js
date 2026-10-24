@@ -77,7 +77,8 @@ export function parseProject(data) {
     return fail("Editor zoom must be 16, 32, 64, 128, or 256.");
   }
   if (zoom.sprites != null && !SPRITE_ZOOMS.includes(zoom.sprites)) {
-    return fail("Sprite zoom must be 4, 6, 8, 12, or 16.");
+    const listed = `${SPRITE_ZOOMS.slice(0, -1).join(", ")}, or ${SPRITE_ZOOMS.at(-1)}`;
+    return fail(`Sprite zoom must be ${listed}.`);
   }
 
   const size = data.tileSize || {};

@@ -6,7 +6,7 @@ There is no build step. The page is static HTML, CSS, and ES modules. It has to 
 
 ```
 cd chared64
-python3 -m http.server 8000
+make serve
 ```
 
 Then open [http://127.0.0.1:8000/](http://127.0.0.1:8000/).

@@ -12,16 +12,25 @@ import {
   addActorAction,
   cellColor,
   clearPlacement,
+  clearSpriteFrame,
+  clipSpriteRect,
+  copySpriteSelection,
   createActor,
   deleteActor,
-  directionSet,
+  directionsFor,
   displayPose,
   eachVisibleSprite,
+  framePixelSize,
   gridChoices,
   imagesUsed,
   layerMode,
   paintValue,
+  parseSpriteFrameClipboard,
+  pasteSpriteSelection,
   pushSpriteUndo,
+  relocateSpriteSelection,
+  restoreSpriteSnapshot,
+  snapshotPose,
   removeActorAction,
   setActionFrames,
   setActionInterval,
@@ -36,7 +45,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 
-export function mountSprite(session, { setStatus }) {
+export function mountSprite(session, { setStatus, writeSpriteClipboard, readSpriteClipboard }) {
   const canvas = $("sprite-canvas");
   const wizardEl = $("sprite-wizard");
   const workEl = $("sprite-work");
@@ -64,6 +73,7 @@ export function mountSprite(session, { setStatus }) {
 
   let wizard = null;
   let stroke = null;
+  let gesture = null;
   let timer = 0;
   let padKey = "";
   let actionKey = "";
@@ -195,7 +205,7 @@ export function mountSprite(session, { setStatus }) {
       choiceButtons(body, choices, wizard.directions, (value) => { wizard.directions = value; renderWizard(); });
       const note = document.createElement("p");
       note.className = "hint";
-      note.textContent = "Climbing and jumping are actions, not directions. A platform game should use horizontal movement only.";
+      note.textContent = "Climbing and jumping are actions, not directions. Climbing does not use left and right poses. A platform game should use horizontal movement only.";
       wizardEl.append(note);
     } else {
       title.textContent = "Which actions does it have?";
@@ -364,6 +374,7 @@ export function mountSprite(session, { setStatus }) {
     session.ui.spritePaint = { kind: "ink", color: cellColor(actor, 0, 0, layer) };
     session.ui.spritePlaceArmed = false;
     session.ui.spritePlaying = false;
+    session.ui.spriteSelection = null;
     assign = { kind: "cell" };
   }
 
@@ -415,35 +426,46 @@ export function mountSprite(session, { setStatus }) {
     stopButton.disabled = !session.ui.spritePlaying;
     placeButton.setAttribute("aria-pressed", String(session.ui.spritePlaceArmed));
     clearButton.disabled = !actor.placement;
+    $("sprite-frame-paste").disabled = !session.ui.spriteClipboard;
+    const toolName = session.ui.spriteTool === "select" || session.ui.spriteTool === "move" ? session.ui.spriteTool : "pen";
+    for (const button of $("sprite-tool").querySelectorAll("button")) {
+      button.setAttribute("aria-pressed", String(button.dataset.value === toolName));
+    }
+    const sel = clipSpriteRect(actor, session.ui.spriteSelection);
+    $("sprite-select-label").textContent = sel ? `${sel.width}×${sel.height}` : "";
+    canvas.style.cursor = toolName === "move" ? "move" : "crosshair";
     $("sprite-remove-action").disabled = actor.actions.length < 2;
     renderColors(actor);
     if (!actionForm.hidden) renderAddAction(actor);
   }
 
   function syncPad(actor, pose) {
-    const key = `${actor.id}:${actor.directions}`;
+    const action = actor.actions.find((entry) => entry.id === pose.actionId) || actor.actions[0];
+    const dirs = directionsFor(actor.directions, action.type);
+    const key = `${actor.id}:${actor.directions}:${action.type}:${dirs.map((cell) => cell.id).join(",")}`;
     if (key !== padKey) {
       padKey = key;
-      const set = directionSet(actor.directions);
-      pad.style.gridTemplateColumns = `repeat(${set.cols}, max-content)`;
+      const cols = Math.max(...dirs.map((cell) => cell.col)) + 1;
+      const rows = Math.max(...dirs.map((cell) => cell.row)) + 1;
+      pad.style.gridTemplateColumns = `repeat(${cols}, max-content)`;
+      pad.style.gridTemplateRows = `repeat(${rows}, max-content)`;
       pad.replaceChildren();
-      for (let row = 0; row < set.rows; row += 1) {
-        for (let col = 0; col < set.cols; col += 1) {
-          const cell = set.cells.find((entry) => entry.col === col && entry.row === row);
-          const button = document.createElement("button");
-          button.type = "button";
-          button.textContent = cell.label;
-          button.dataset.direction = cell.id;
-          button.addEventListener("click", () => {
-            stop();
-            session.ui.spritePlaying = false;
-            const live = ensurePose(actor);
-            session.ui.spritePose = { ...live, directionId: cell.id, frame: 0 };
-            session.emit("sprites-live");
-            sync();
-          });
-          pad.append(button);
-        }
+      for (const cell of dirs) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = cell.label;
+        button.dataset.direction = cell.id;
+        button.style.gridColumn = String(cell.col + 1);
+        button.style.gridRow = String(cell.row + 1);
+        button.addEventListener("click", () => {
+          stop();
+          session.ui.spritePlaying = false;
+          const live = ensurePose(actor);
+          session.ui.spritePose = { ...live, directionId: cell.id, frame: 0 };
+          session.emit("sprites-live");
+          sync();
+        });
+        pad.append(button);
       }
     }
     for (const button of pad.querySelectorAll("button")) {
@@ -597,7 +619,7 @@ export function mountSprite(session, { setStatus }) {
       session.ui.spritePose = {
         actorId: actor.id,
         actionId: added.id,
-        directionId: directionSet(actor.directions).cells[0].id,
+        directionId: directionsFor(actor.directions, added.type)[0].id,
         frame: 0,
       };
       return true;
@@ -630,6 +652,32 @@ export function mountSprite(session, { setStatus }) {
       );
     });
     drawGrid(ctx, actor, zoom);
+    drawSelection(ctx, actor, zoom);
+  }
+
+  function shownSelection(actor) {
+    if (gesture?.kind === "select") return cornersToRect(gesture.start, gesture.end, actor);
+    if (gesture?.kind === "move") return gesture.landed;
+    return clipSpriteRect(actor, session.ui.spriteSelection);
+  }
+
+  function cornersToRect(a, b, actor) {
+    const x0 = Math.min(a.x, b.x);
+    const y0 = Math.min(a.y, b.y);
+    const x1 = Math.max(a.x, b.x);
+    const y1 = Math.max(a.y, b.y);
+    return clipSpriteRect(actor, { x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 });
+  }
+
+  function drawSelection(ctx, actor, zoom) {
+    const sel = shownSelection(actor);
+    if (!sel) return;
+    ctx.save();
+    ctx.strokeStyle = "#8eb0ff";
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sel.x * zoom + 0.5, sel.y * zoom + 0.5, sel.width * zoom, sel.height * zoom);
+    ctx.restore();
   }
 
   function drawGrid(ctx, actor, zoom) {
@@ -682,11 +730,27 @@ export function mountSprite(session, { setStatus }) {
     const px = Math.floor((event.clientX - rect.left) / zoom);
     const py = Math.floor((event.clientY - rect.top) / zoom);
     return {
+      x: px,
+      y: py,
       gx: Math.floor(px / 24),
       gy: Math.floor(py / 21),
       lx: px % 24,
       ly: py % 21,
     };
+  }
+
+  function framePoint(event) {
+    const point = pointAt(event);
+    const actor = current();
+    if (!point || !actor) return null;
+    const frame = framePixelSize(actor);
+    const x = Math.min(frame.w - 1, Math.max(0, point.x));
+    const y = Math.min(frame.h - 1, Math.max(0, point.y));
+    return { x, y, gx: Math.floor(x / 24), gy: Math.floor(y / 21), lx: x % 24, ly: y % 21 };
+  }
+
+  function spriteTool() {
+    return session.ui.spriteTool === "select" || session.ui.spriteTool === "move" ? session.ui.spriteTool : "pen";
   }
 
   function paintAt(point) {
@@ -722,6 +786,68 @@ export function mountSprite(session, { setStatus }) {
     if (paintAt(pointAt(event))) session.emit("sprites-live");
   }
 
+  function startPointer(event) {
+    const actor = current();
+    if (!actor || wizard) return;
+    const active = spriteTool();
+    if (active === "pen") {
+      beginStroke(event);
+      return;
+    }
+    if (event.button !== 0) return;
+    const point = framePoint(event);
+    if (!point) return;
+    stop();
+    session.ui.spritePlaying = false;
+    session.ui.lastSurface = "sprite";
+    if (active === "select") {
+      gesture = { kind: "select", start: point, end: point };
+      session.emit("sprites-live");
+      return;
+    }
+    const base = clipSpriteRect(actor, session.ui.spriteSelection);
+    if (!base) {
+      setStatus("Select an area on the sprite first.", true);
+      return;
+    }
+    const pose = ensurePose(actor);
+    const snapshots = snapshotPose(session.project, actor, pose);
+    if (!snapshots) return;
+    gesture = { kind: "move", anchor: point, base, landed: base, snapshots, pose, actorId: actor.id };
+  }
+
+  function finishGesture(commit) {
+    if (!gesture) return;
+    const currentGesture = gesture;
+    gesture = null;
+    if (currentGesture.kind === "select") {
+      const actor = current();
+      const rect = actor ? cornersToRect(currentGesture.start, currentGesture.end, actor) : null;
+      session.ui.spriteSelection = rect;
+      session.emit("sprites");
+      if (rect) setStatus(`Selected ${rect.width}×${rect.height}.`);
+      return;
+    }
+    const actor = actorById(session.project, currentGesture.actorId);
+    if (!commit || !actor) {
+      restoreSpriteSnapshot(session.project, currentGesture.snapshots);
+      session.emit("sprites-live");
+      return;
+    }
+    const landed = currentGesture.landed || currentGesture.base;
+    const undo = currentGesture.snapshots.filter((shot) => !sameBytes(spriteBytes(session.project, shot.index), shot.bytes));
+    if (undo.length) {
+      pushSpriteUndo(session.project, undo);
+      session.ui.dirty = true;
+      session.ui.lastSurface = "sprite";
+    }
+    if (undo.length || landed.x !== currentGesture.base.x || landed.y !== currentGesture.base.y) {
+      setStatus("Moved the selection.");
+    }
+    session.ui.spriteSelection = landed;
+    session.emit("sprites");
+  }
+
   function endStroke(commit) {
     if (!stroke) return;
     const project = session.project;
@@ -744,22 +870,51 @@ export function mountSprite(session, { setStatus }) {
     if (event.button !== 0 && event.button !== 2) return;
     if (touchUsesTap(event, { draws: true })) return;
     event.preventDefault();
-    beginStroke(event);
+    startPointer(event);
     try { canvas.setPointerCapture(event.pointerId); } catch { /* pointer already gone */ }
   });
   bindTap(canvas, {
     enabled: (event) => touchUsesTap(event, { draws: true }),
     onTap: (event) => {
-      beginStroke(event);
-      endStroke(true);
+      startPointer(event);
+      if (stroke) endStroke(true);
+      else finishGesture(true);
     },
   });
   canvas.addEventListener("pointermove", (event) => {
-    if (!stroke) return;
-    if (paintAt(pointAt(event))) session.emit("sprites-live");
+    if (stroke) {
+      if (paintAt(pointAt(event))) session.emit("sprites-live");
+      return;
+    }
+    if (!gesture) return;
+    const point = framePoint(event);
+    if (!point) return;
+    if (gesture.kind === "select") {
+      gesture.end = point;
+      session.emit("sprites-live");
+      return;
+    }
+    const actor = actorById(session.project, gesture.actorId);
+    if (!actor) return;
+    restoreSpriteSnapshot(session.project, gesture.snapshots);
+    gesture.landed = relocateSpriteSelection(
+      session.project,
+      actor,
+      gesture.pose,
+      gesture.base,
+      gesture.base.x + (point.x - gesture.anchor.x),
+      gesture.base.y + (point.y - gesture.anchor.y),
+    ) || gesture.base;
+    session.emit("sprites-live");
   });
-  canvas.addEventListener("pointerup", () => endStroke(true));
-  canvas.addEventListener("pointercancel", () => endStroke(false));
+  canvas.addEventListener("pointerup", () => {
+    if (stroke) endStroke(true);
+    else finishGesture(true);
+  });
+  canvas.addEventListener("pointercancel", () => {
+    if (stroke) endStroke(false);
+    else finishGesture(false);
+  });
 
   $("sprite-new").addEventListener("click", () => openWizard());
   actorSelect.addEventListener("change", () => {
@@ -795,6 +950,7 @@ export function mountSprite(session, { setStatus }) {
     edit("sprites", (project) => deleteActor(project, actor.id));
     session.ui.spriteActorId = session.project.actors[0]?.id ?? null;
     session.ui.spritePose = null;
+    session.ui.spriteSelection = null;
     actionForm.hidden = true;
     setStatus(`Deleted ${actor.name}.`);
   });
@@ -847,8 +1003,100 @@ export function mountSprite(session, { setStatus }) {
       setStatus("Frame time must be from 40 to 2000 milliseconds.", true);
     }
   });
+  $("sprite-tool").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    session.ui.spriteTool = button.dataset.value;
+    session.emit("chrome");
+  });
   $("sprite-frame-prev").addEventListener("click", () => stepFrame(-1));
   $("sprite-frame-next").addEventListener("click", () => stepFrame(1));
+  $("sprite-frame-copy").addEventListener("click", () => copyFrame());
+  $("sprite-frame-paste").addEventListener("click", () => pasteFrame());
+  $("sprite-frame-clear").addEventListener("click", () => clearFrame());
+  function copyFrame() {
+    const actor = current();
+    if (!actor || wizard) {
+      setStatus(wizard ? "Finish creating the actor before copying a frame." : "Create a sprite actor first.", true);
+      return false;
+    }
+    stop();
+    session.ui.spritePlaying = false;
+    const pose = ensurePose(actor);
+    const sel = clipSpriteRect(actor, session.ui.spriteSelection);
+    if (!sel) {
+      setStatus("Select an area on the sprite first.", true);
+      return false;
+    }
+    const clip = copySpriteSelection(session.project, actor, pose, sel);
+    if (!clip) {
+      setStatus("That selection cannot be copied.", true);
+      return false;
+    }
+    session.ui.spriteClipboard = clip;
+    writeSpriteClipboard(clip);
+    session.emit("chrome");
+    setStatus(`Copied ${sel.width}×${sel.height}.`);
+    return true;
+  }
+
+  async function pasteFrame() {
+    const actor = current();
+    if (!actor || wizard) {
+      setStatus(wizard ? "Finish creating the actor before pasting a frame." : "Create a sprite actor first.", true);
+      return;
+    }
+    stop();
+    session.ui.spritePlaying = false;
+    const clip = (await readSpriteClipboard()) || session.ui.spriteClipboard;
+    if (!clip) {
+      setStatus("Nothing to paste.", true);
+      session.emit("chrome");
+      return;
+    }
+    const parsed = parseSpriteFrameClipboard(clip);
+    if (!parsed) {
+      setStatus("Nothing to paste.", true);
+      session.emit("chrome");
+      return;
+    }
+    const pose = ensurePose(actor);
+    const sel = clipSpriteRect(actor, session.ui.spriteSelection);
+    if (!sel) {
+      setStatus("Select an area on the sprite first.", true);
+      return;
+    }
+    session.ui.spriteClipboard = parsed;
+    session.ui.lastSurface = "sprite";
+    let landed = null;
+    const changed = edit("sprites", (project) => {
+      landed = pasteSpriteSelection(project, actorById(project, actor.id), pose, sel.x, sel.y, parsed);
+      if (!landed) return false;
+      session.ui.spriteSelection = landed;
+      return true;
+    });
+    if (!changed) {
+      setStatus("Paste made no change.");
+      return;
+    }
+    session.ui.spriteSelection = landed;
+    setStatus(`Pasted ${landed.width}×${landed.height}.`);
+  }
+
+  function clearFrame() {
+    const actor = current();
+    if (!actor || wizard) {
+      setStatus(wizard ? "Finish creating the actor before clearing a frame." : "Create a sprite actor first.", true);
+      return;
+    }
+    stop();
+    session.ui.spritePlaying = false;
+    const pose = ensurePose(actor);
+    session.ui.lastSurface = "sprite";
+    const changed = edit("sprites", (project) => clearSpriteFrame(project, actorById(project, actor.id), pose));
+    setStatus(changed ? `Cleared frame ${pose.frame + 1}.` : "That frame is already clear.");
+  }
+
   function stepFrame(delta) {
     const actor = current();
     if (!actor) return;
@@ -870,7 +1118,9 @@ export function mountSprite(session, { setStatus }) {
     const actor = current();
     if (!actor) return;
     session.ui.spritePlaceArmed = !session.ui.spritePlaceArmed;
-    setStatus(session.ui.spritePlaceArmed ? "Click the screen to place this actor." : "Placement cancelled.");
+    setStatus(session.ui.spritePlaceArmed
+      ? "Click the screen to place this actor. Click Place on screen again to stop."
+      : "Stopped placing.");
     session.emit("sprites");
   });
   $("sprite-clear-place").addEventListener("click", () => {
@@ -971,7 +1221,7 @@ export function mountSprite(session, { setStatus }) {
     }
   });
 
-  return { draw, stop, sync };
+  return { draw, stop, sync, copyFrame, pasteFrame };
 }
 
 function choiceButtons(parent, choices, selected, onPick) {

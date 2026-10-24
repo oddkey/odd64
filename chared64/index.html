@@ -114,6 +114,9 @@
                       <button type="button" id="sprite-frame-prev">Prev</button>
                       <span id="sprite-frame-label" class="meta"></span>
                       <button type="button" id="sprite-frame-next">Next</button>
+                      <button type="button" id="sprite-frame-copy" title="Copy the selection on every layer">Copy</button>
+                      <button type="button" id="sprite-frame-paste" title="Paste at the selection on every layer" disabled>Paste</button>
+                      <button type="button" id="sprite-frame-clear" title="Clear this frame">Clear frame</button>
                     </div>
                     <button type="button" id="sprite-play">Play</button>
                     <button type="button" id="sprite-stop" disabled>Stop</button>
@@ -136,6 +139,14 @@
                     <div id="sprite-palette" class="palette sprite-palette" role="radiogroup" aria-label="Assign color"></div>
                     <div id="sprite-paint" class="roles" role="group" aria-label="Paint color"></div>
                     <p id="sprite-color-hint" class="hint"></p>
+                  </div>
+                  <div class="sprite-tools">
+                    <div class="segmented" id="sprite-tool" role="group" aria-label="Sprite tool">
+                      <button type="button" data-value="pen" aria-pressed="true" title="Draw on the selected sprite">Pen</button>
+                      <button type="button" data-value="select" aria-pressed="false" title="Drag a rectangle. Copy, paste, and move use every layer">Select</button>
+                      <button type="button" data-value="move" aria-pressed="false" title="Move the selection on every layer">Move</button>
+                    </div>
+                    <span id="sprite-select-label" class="meta"></span>
                   </div>
                   <div class="sprite-canvas-wrap" id="sprite-canvas-wrap">
                     <canvas id="sprite-canvas" aria-label="Sprite editor"></canvas>
