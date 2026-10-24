@@ -7,6 +7,7 @@ export const TILE_MAX = 256;
 export const UNDO_LIMIT = 100;
 export const MAP_ZOOMS = [1, 2, 4, 8, 16];
 export const EDITOR_ZOOMS = [16, 32, 64, 128, 256];
+export const SPRITE_BANK_BYTES = 256 * 64;
 export const CLIPBOARD_KIND = "chared64-glyphs";
 export const CLIPBOARD_STORAGE_KEY = "chared64.clipboard";
 export const SCREEN_CLIPBOARD_KIND = "chared64-screen";
@@ -28,6 +29,7 @@ export const DEFAULTS = {
   multiCell: 7,
   mapZoom: 2,
   editorZoom: 32,
+  spriteZoom: 8,
   tileZoom: 2,
   tileWidth: 40,
   tileHeight: 25,
@@ -110,6 +112,7 @@ export function createBlankProject() {
     zoom: {
       characters: DEFAULTS.mapZoom,
       editor: DEFAULTS.editorZoom,
+      sprites: DEFAULTS.spriteZoom,
       tiles: DEFAULTS.tileZoom,
     },
     tileWidth: DEFAULTS.tileWidth,
@@ -122,6 +125,10 @@ export function createBlankProject() {
     copyFrom: null,
     glyphUndo: [],
     tileUndo: [],
+    sprites: new Uint8Array(SPRITE_BANK_BYTES),
+    actors: [],
+    nextActorId: 1,
+    spriteUndo: [],
   };
 }
 

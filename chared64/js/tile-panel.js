@@ -1,6 +1,7 @@
 import { bindTap, touchUsesTap } from "./gesture.js";
 import { eachStampCell, pushTileUndo, selectionRect, tileRectFromCorners, undoTile } from "./project.js";
-import { displayInk, drawGlyph, prepareCanvas } from "./render.js";
+import { displayInk, drawGlyph, drawHardwareSprite, prepareCanvas } from "./render.js";
+import { actorById, actorPixelSize, displayPose, eachVisibleSprite, placeActor } from "./sprites.js";
 
 export function mountTiles(session) {
   const frame = document.getElementById("tile-frame");
@@ -214,6 +215,18 @@ export function mountTiles(session) {
 
   scroller.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
+    if (session.ui.view === "sprites" && session.ui.spritePlaceArmed) {
+      const point = cellAt(event);
+      const actor = actorById(session.project, session.ui.spriteActorId);
+      if (actor && inBounds(session.project, point)) {
+        placeActor(actor, point.x * 8, point.y * 8, session.ui.spritePose);
+        session.ui.spritePlaceArmed = false;
+        session.ui.dirty = true;
+        session.ui.lastSurface = "tile";
+        session.emit("sprites");
+      }
+      return;
+    }
     if (isDouble(event)) {
       skipGesture = true;
       const point = contentCell(event);
@@ -310,7 +323,7 @@ export function mountTiles(session) {
   new ResizeObserver(scheduleDraw).observe(frame);
 
   function screenExtent(project, size) {
-    const contentH = project.tileHeight * size;
+    const contentH = project.tileHeight * size + 21 * project.zoom.tiles;
     const docTop = scroller.getBoundingClientRect().top + window.scrollY;
     const fill = Math.max(0, window.innerHeight - docTop);
     return Math.max(contentH, fill);
@@ -391,6 +404,21 @@ export function mountTiles(session) {
         ctx.setLineDash([]);
       }
     }
+    const placed = session.ui.view === "sprites"
+      ? actorById(session.project, session.ui.spriteActorId)
+      : null;
+    if (placed?.placement) {
+      const zoom = session.project.zoom.tiles;
+      const sizePx = actorPixelSize(placed);
+      ctx.strokeStyle = "#8eb0ff";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        placed.placement.x * zoom + 0.5,
+        placed.placement.y * zoom + 0.5,
+        sizePx.w * zoom - 1,
+        sizePx.h * zoom - 1,
+      );
+    }
     const cursor = session.ui.tileShape === "type" ? session.ui.tileCursor : null;
     if (cursor && caretOn) {
       ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
@@ -406,6 +434,7 @@ export function mountTiles(session) {
     const project = session.project;
     scroller.classList.toggle("selecting", session.ui.tileShape === "select");
     scroller.classList.toggle("typing", session.ui.tileShape === "type");
+    scroller.classList.toggle("placing", session.ui.view === "sprites" && session.ui.spritePlaceArmed);
     const size = cellSize();
     spacer.style.width = `${project.tileWidth * size}px`;
     spacer.style.height = `${screenExtent(project, size)}px`;
@@ -442,7 +471,26 @@ export function mountTiles(session) {
       ctx.lineTo(x1 * size, y * size + 0.5);
     }
     ctx.stroke();
+    drawPlacedActors(ctx, project.zoom.tiles);
     ctx.restore();
+  }
+
+  function drawPlacedActors(ctx, zoom) {
+    for (const actor of session.project.actors) {
+      if (!actor.placement) continue;
+      const pose = displayPose(actor, session.ui);
+      eachVisibleSprite(session.project, actor, pose, (sprite) => {
+        drawHardwareSprite(
+          ctx,
+          sprite.bytes,
+          (actor.placement.x + sprite.gx * 24) * zoom,
+          (actor.placement.y + sprite.gy * 21) * zoom,
+          zoom,
+          sprite.mode,
+          sprite,
+        );
+      });
+    }
   }
 
   return { draw, drawOverlay, revealCell };

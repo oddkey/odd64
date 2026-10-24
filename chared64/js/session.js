@@ -15,6 +15,14 @@ export function createSession(project) {
     fitEditor: false,
     touchDraw: false,
     clipboard: null,
+    view: "characters",
+    spriteActorId: null,
+    spritePose: null,
+    spritePlaying: false,
+    spritePlaceArmed: false,
+    spriteLayer: 0,
+    spriteCell: { x: 0, y: 0 },
+    spritePaint: { kind: "ink", color: 14 },
   };
 
   function emit(reason) {
@@ -48,6 +56,13 @@ export function createSession(project) {
       ui.tileCursor = ui.tileShape === "type" ? { x: 0, y: 0, homeX: 0 } : null;
       ui.paintRole = next.mode === "multi" ? "cell" : "foreground";
       ui.tileInk = next.mode === "multi" ? next.colors.multiCell : next.colors.foreground;
+      ui.spriteActorId = null;
+      ui.spritePose = null;
+      ui.spritePlaying = false;
+      ui.spritePlaceArmed = false;
+      ui.spriteLayer = 0;
+      ui.spriteCell = { x: 0, y: 0 };
+      ui.spritePaint = { kind: "ink", color: 14 };
       emit("project");
     },
     mutate(reason, fn) {

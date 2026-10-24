@@ -35,6 +35,8 @@ import { mountMap } from "./map-panel.js";
 import { createSession } from "./session.js";
 import { contentBoxWidth } from "./render.js";
 import { mountTiles } from "./tile-panel.js";
+import { mountSprite } from "./sprite-panel.js";
+import { actorById, moveActor, undoSprite } from "./sprites.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -42,6 +44,7 @@ const session = createSession(createBlankProject());
 const map = mountMap(session);
 const editor = mountEditor(session);
 const tiles = mountTiles(session);
+const sprites = mountSprite(session, { setStatus });
 
 const nameInput = $("project-name");
 const status = $("status");
@@ -163,6 +166,11 @@ function syncChrome() {
   document.body.classList.toggle("draw-mode", session.ui.touchDraw);
   syncPressed($("tile-tool"), session.ui.tileTool);
   syncPressed($("tile-shape"), session.ui.tileShape);
+  syncPressed($("view-seg"), session.ui.view);
+  $("workspace-track").dataset.view = session.ui.view;
+  $("character-pane").inert = session.ui.view !== "characters";
+  $("sprite-pane").inert = session.ui.view !== "sprites";
+  syncWorkspaceHeight();
 
   const selected = armedColor();
   const limitCell = project.mode === "multi" && session.ui.paintRole === "cell";
@@ -205,12 +213,21 @@ function render(reason) {
     tiles.draw();
     return;
   }
+  if (reason === "sprites-live") {
+    sprites.draw();
+    tiles.draw();
+    tiles.drawOverlay();
+    return;
+  }
   if (reason === "chrome") {
     syncChrome();
+    sprites.sync();
     return;
   }
   map.draw();
   editor.draw();
+  sprites.sync();
+  sprites.draw();
   tiles.draw();
   tiles.drawOverlay();
   syncChrome();
@@ -263,6 +280,19 @@ const fitObserver = new ResizeObserver(() => {
 });
 fitObserver.observe(mapBody);
 fitObserver.observe(editorBody);
+
+const workspace = $("workspace");
+const characterPane = $("character-pane");
+const spritePane = $("sprite-pane");
+
+function syncWorkspaceHeight() {
+  const active = session.ui.view === "sprites" ? spritePane : characterPane;
+  workspace.style.height = `${active.offsetHeight}px`;
+}
+
+const paneObserver = new ResizeObserver(() => syncWorkspaceHeight());
+paneObserver.observe(characterPane);
+paneObserver.observe(spritePane);
 
 for (let index = 0; index < 16; index += 1) {
   const swatch = document.createElement("button");
@@ -536,6 +566,13 @@ $("mode-seg").addEventListener("click", (event) => {
   const value = event.target.closest("button")?.dataset.value;
   if (value) session.setMode(value);
 });
+$("view-seg").addEventListener("click", (event) => {
+  const value = event.target.closest("button")?.dataset.value;
+  if (value !== "characters" && value !== "sprites") return;
+  if (session.ui.view === value) return;
+  session.ui.view = value;
+  session.emit("view");
+});
 $("tile-tool").addEventListener("click", (event) => {
   const value = event.target.closest("button")?.dataset.value;
   if (!value) return;
@@ -601,7 +638,7 @@ $("export-bin").addEventListener("click", () => {
   const project = session.project;
   const stem = fileStem(project.name);
   download(`${stem}.bin`, new Blob([project.characters], { type: "application/octet-stream" }));
-  setStatus(`Exported ${stem}.bin. The tile screen stays in the JSON project.`);
+  setStatus(`Exported ${stem}.bin. The screen and sprites stay in the JSON project.`);
 });
 
 function runEdit(reason, fn) {
@@ -784,7 +821,8 @@ window.addEventListener("keydown", (event) => {
       const entry = session.project.tileUndo.at(-1);
       runEdit("tiles", undoTile);
       retreatTypeCursor(entry);
-    } else runEdit("pixels", undoGlyph);
+    } else if (session.ui.lastSurface === "sprite") runEdit("sprites", undoSprite);
+    else runEdit("pixels", undoGlyph);
     return;
   }
   if (command && key === "v" && typeCursorActive()) {
@@ -834,6 +872,23 @@ window.addEventListener("keydown", (event) => {
       applyTyped(event.key);
       return;
     }
+  }
+  if (session.ui.view === "sprites" && event.key.startsWith("Arrow") && !typeCursorActive()) {
+    const actor = actorById(session.project, session.ui.spriteActorId) || session.project.actors[0];
+    const pose = actor?.placement
+      ? moveActor(session.project, actor, event.key, session.ui.spritePose)
+      : null;
+    if (pose) {
+      event.preventDefault();
+      sprites.stop();
+      session.ui.spritePlaying = false;
+      session.ui.spritePose = pose;
+      session.ui.dirty = true;
+      session.emit("sprites");
+      return;
+    }
+    event.preventDefault();
+    return;
   }
   const project = session.project;
   const next = moveMapIndex(project.selected, event.key, event.shiftKey);

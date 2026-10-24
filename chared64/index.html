@@ -10,6 +10,10 @@
     <div class="app">
       <header class="toolbar">
         <div class="brand">CharEd64</div>
+        <div class="segmented" id="view-seg" role="group" aria-label="Editor">
+          <button type="button" data-value="characters" aria-pressed="true">Characters</button>
+          <button type="button" data-value="sprites" aria-pressed="false">Sprites</button>
+        </div>
         <label class="name">Project <input id="project-name" type="text" spellcheck="false" autocomplete="off"></label>
         <div class="segmented" id="bank-seg" role="group" aria-label="Character set">
           <button type="button" data-value="upper" aria-pressed="true">Uppercase</button>
@@ -33,6 +37,9 @@
         <p class="touch-hint">Swipe to move the page. Tap to select or paint. Draw lets you drag.</p>
       </header>
 
+      <div class="workspace" id="workspace">
+        <div class="workspace-track" id="workspace-track" data-view="characters">
+          <div class="workspace-pane character-pane" id="character-pane">
       <aside class="panel colors" aria-label="Colors">
         <div class="panel-head">
           <h2>Colors</h2>
@@ -76,6 +83,69 @@
           <canvas id="map-canvas" aria-label="256 characters"></canvas>
         </div>
       </section>
+          </div>
+
+          <div class="workspace-pane sprite-pane" id="sprite-pane">
+            <section class="panel sprites" aria-label="Sprite editor">
+              <div class="panel-head wrap">
+                <h2>Sprites</h2>
+                <button type="button" id="sprite-new">New actor</button>
+                <label>Actor <select id="sprite-actor" aria-label="Sprite actor"></select></label>
+                <label class="name">Name <input id="sprite-name" type="text" spellcheck="false" autocomplete="off" maxlength="32"></label>
+                <button type="button" id="sprite-delete">Delete</button>
+                <span id="sprite-usage" class="meta"></span>
+                <label class="zoom">Zoom
+                  <select id="zoom-sprite" aria-label="Sprite zoom"></select>
+                </label>
+                <button type="button" id="sprite-undo">Undo</button>
+              </div>
+              <div class="panel-body sprite-body">
+                <div id="sprite-wizard" class="wizard" hidden></div>
+                <p id="sprite-empty" class="hint">Create a sprite actor to start. Actors are player, enemy, or action sprites built from the 256 sprite images.</p>
+                <div id="sprite-work" class="sprite-work" hidden>
+                  <div class="sprite-controls">
+                    <label>Action <select id="sprite-action" aria-label="Action"></select></label>
+                    <button type="button" id="sprite-add-action">Add action</button>
+                    <button type="button" id="sprite-remove-action">Remove</button>
+                    <label>Frames <input id="sprite-frames" type="number" min="1" max="64" step="1"></label>
+                    <label>Frame time <input id="sprite-interval" type="number" min="40" max="2000" step="10"> ms</label>
+                    <div id="sprite-directions" class="direction-pad" role="group" aria-label="Direction"></div>
+                    <div class="sprite-frame-nav">
+                      <button type="button" id="sprite-frame-prev">Prev</button>
+                      <span id="sprite-frame-label" class="meta"></span>
+                      <button type="button" id="sprite-frame-next">Next</button>
+                    </div>
+                    <button type="button" id="sprite-play">Play</button>
+                    <button type="button" id="sprite-stop" disabled>Stop</button>
+                    <button type="button" id="sprite-place">Place on screen</button>
+                    <button type="button" id="sprite-clear-place">Clear from screen</button>
+                  </div>
+                  <div id="sprite-action-form" class="action-form" hidden>
+                    <div id="sprite-action-types" class="choice-grid"></div>
+                    <label>Custom <input id="sprite-custom-action" type="text" maxlength="32" spellcheck="false" autocomplete="off"></label>
+                    <label>Frames <input id="sprite-action-frames" type="number" min="1" max="64" step="1" value="1"></label>
+                    <label class="check"><input id="sprite-action-template" type="checkbox" checked> Stick-figure template</label>
+                    <button type="button" id="sprite-custom-add">Add custom</button>
+                    <button type="button" id="sprite-action-cancel">Cancel</button>
+                  </div>
+                  <div class="sprite-colors">
+                    <div class="sprite-target">
+                      <span class="meta" id="sprite-target-label">Sprite</span>
+                      <div id="sprite-pick" class="sprite-pick" role="radiogroup" aria-labelledby="sprite-target-label"></div>
+                    </div>
+                    <div id="sprite-palette" class="palette sprite-palette" role="radiogroup" aria-label="Assign color"></div>
+                    <div id="sprite-paint" class="roles" role="group" aria-label="Paint color"></div>
+                    <p id="sprite-color-hint" class="hint"></p>
+                  </div>
+                  <div class="sprite-canvas-wrap" id="sprite-canvas-wrap">
+                    <canvas id="sprite-canvas" aria-label="Sprite editor"></canvas>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
 
       <section class="panel tiles" aria-label="Tile editor">
         <div class="panel-head wrap">

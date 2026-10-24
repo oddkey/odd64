@@ -5,6 +5,7 @@ import {
   TILE_MAX,
   createBlankProject,
 } from "./project.js";
+import { SPRITE_ZOOMS, readSprites, serializeSprites } from "./sprites.js";
 
 function fail(error) {
   return { ok: false, error };
@@ -38,6 +39,7 @@ export function serializeProject(project) {
     activeSet: project.activeSet,
     colors: { ...project.colors },
     zoom: { ...project.zoom },
+    ...serializeSprites(project),
     tileSize: { width: project.tileWidth, height: project.tileHeight },
     characters: Array.from(project.characters),
     tiles: {
@@ -73,6 +75,9 @@ export function parseProject(data) {
   }
   if (!EDITOR_ZOOMS.includes(zoom.editor)) {
     return fail("Editor zoom must be 16, 32, 64, 128, or 256.");
+  }
+  if (zoom.sprites != null && !SPRITE_ZOOMS.includes(zoom.sprites)) {
+    return fail("Sprite zoom must be 4, 6, 8, 12, or 16.");
   }
 
   const size = data.tileSize || {};
@@ -110,8 +115,11 @@ export function parseProject(data) {
   project.zoom = {
     characters: zoom.characters,
     editor: zoom.editor,
+    sprites: SPRITE_ZOOMS.includes(zoom.sprites) ? zoom.sprites : 8,
     tiles: zoom.tiles,
   };
+  const spriteError = readSprites(data, project);
+  if (spriteError) return fail(spriteError);
   project.tileWidth = size.width;
   project.tileHeight = size.height;
   project.characters = Uint8Array.from(data.characters);
