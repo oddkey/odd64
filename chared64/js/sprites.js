@@ -738,6 +738,26 @@ export function moveSpriteSelection(project, actor, pose, rect, destX, destY) {
   return landed;
 }
 
+export function mirrorSpriteSelection(project, actor, pose, rect) {
+  const live = poseIndices(actor, pose);
+  const area = clipSpriteRect(actor, rect);
+  if (!live || !area) return false;
+  const snapshots = snapshotPose(project, actor, pose);
+  const planes = readSelectionPlanes(project, actor, live.indices, area).map((plane) => {
+    const pixels = [];
+    for (let y = 0; y < area.height; y += 1) {
+      for (let x = 0; x < area.width; x += 1) {
+        pixels.push(plane.pixels[y * area.width + (area.width - 1 - x)]);
+      }
+    }
+    return { mode: plane.mode, pixels };
+  });
+  writeSelectionPlanes(project, actor, live.indices, area, planes, area.width, area.height);
+  const undo = snapshots.filter((shot) => !sameBytes(spriteBytes(project, shot.index), shot.bytes));
+  pushSpriteUndo(project, undo);
+  return undo.length > 0;
+}
+
 export function clearSpriteFrame(project, actor, pose) {
   const shown = shownPose(actor, pose);
   const indices = slotIndices(actor, shown.actionId, shown.directionId, shown.frame);

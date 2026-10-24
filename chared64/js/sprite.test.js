@@ -17,6 +17,7 @@ import {
   displayPose,
   moveActor,
   moveSpriteSelection,
+  mirrorSpriteSelection,
   parseSpriteFrameClipboard,
   pasteSpriteSelection,
   placeActor,
@@ -349,4 +350,42 @@ test("selection copy and move cover every layer and can cross sprites", () => {
   assert.equal(getSpritePixel(spriteBytes(project, cells[1]), "hires", 22, 0), 1);
   assert.equal(getSpritePixel(spriteBytes(project, cells[1]), "hires", 23, 0), 1);
   assert.equal(getSpritePixel(spriteBytes(project, cells[3]), "hires", 22, 0), 1);
+});
+
+test("mirroring a selection flips every layer and undoes", () => {
+  const project = createBlankProject();
+  const actor = createActor(project, actorSpec({ gridW: 2, layers: 2, stack: "over-single", template: false })).actor;
+  const action = actor.actions[0];
+  const cells = actor.slots[action.id].left[0];
+  const pose = { actorId: actor.id, actionId: action.id, directionId: "left", frame: 0 };
+  setSpritePixel(spriteBytes(project, cells[0]), "hires", 22, 0, 1);
+  setSpritePixel(spriteBytes(project, cells[0]), "hires", 21, 1, 1);
+  setSpritePixel(spriteBytes(project, cells[2]), "hires", 22, 0, 1);
+  setSpritePixel(spriteBytes(project, cells[2]), "hires", 10, 0, 1);
+  const rect = { x: 22, y: 0, width: 3, height: 1 };
+  assert.equal(mirrorSpriteSelection(project, actor, pose, rect), true);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[0]), "hires", 22, 0), 0);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[1]), "hires", 0, 0), 1);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[0]), "hires", 21, 1), 1);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[2]), "hires", 22, 0), 0);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[3]), "hires", 0, 0), 1);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[2]), "hires", 10, 0), 1);
+  assert.equal(undoSprite(project), true);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[0]), "hires", 22, 0), 1);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[1]), "hires", 0, 0), 0);
+  assert.equal(getSpritePixel(spriteBytes(project, cells[2]), "hires", 10, 0), 1);
+  const depth = project.spriteUndo.length;
+  assert.equal(mirrorSpriteSelection(project, actor, pose, { x: 21, y: 1, width: 1, height: 1 }), false);
+  assert.equal(project.spriteUndo.length, depth);
+
+  const multi = createActor(project, actorSpec({ layers: 2, stack: "over-multi", template: false })).actor;
+  const multiCells = multi.slots[multi.actions[0].id].left[0];
+  const multiPose = { actorId: multi.id, actionId: multi.actions[0].id, directionId: "left", frame: 0 };
+  setSpritePixel(spriteBytes(project, multiCells[0]), "multi", 0, 0, 1);
+  setSpritePixel(spriteBytes(project, multiCells[0]), "multi", 1, 0, 3);
+  setSpritePixel(spriteBytes(project, multiCells[0]), "multi", 2, 0, 2);
+  assert.equal(mirrorSpriteSelection(project, multi, multiPose, { x: 0, y: 0, width: 4, height: 1 }), true);
+  assert.equal(getSpritePixel(spriteBytes(project, multiCells[0]), "multi", 0, 0), 3);
+  assert.equal(getSpritePixel(spriteBytes(project, multiCells[0]), "multi", 1, 0), 1);
+  assert.equal(getSpritePixel(spriteBytes(project, multiCells[0]), "multi", 2, 0), 2);
 });

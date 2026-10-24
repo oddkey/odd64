@@ -24,6 +24,7 @@ import {
   gridChoices,
   imagesUsed,
   layerMode,
+  mirrorSpriteSelection,
   paintValue,
   parseSpriteFrameClipboard,
   pasteSpriteSelection,
@@ -1014,6 +1015,7 @@ export function mountSprite(session, { setStatus, writeSpriteClipboard, readSpri
   $("sprite-frame-copy").addEventListener("click", () => copyFrame());
   $("sprite-frame-paste").addEventListener("click", () => pasteFrame());
   $("sprite-frame-clear").addEventListener("click", () => clearFrame());
+  $("sprite-mirror").addEventListener("click", () => mirrorSelection());
   function copyFrame() {
     const actor = current();
     if (!actor || wizard) {
@@ -1095,6 +1097,25 @@ export function mountSprite(session, { setStatus, writeSpriteClipboard, readSpri
     session.ui.lastSurface = "sprite";
     const changed = edit("sprites", (project) => clearSpriteFrame(project, actorById(project, actor.id), pose));
     setStatus(changed ? `Cleared frame ${pose.frame + 1}.` : "That frame is already clear.");
+  }
+
+  function mirrorSelection() {
+    const actor = current();
+    if (!actor || wizard) {
+      setStatus(wizard ? "Finish creating the actor before mirroring." : "Create a sprite actor first.", true);
+      return;
+    }
+    stop();
+    session.ui.spritePlaying = false;
+    const pose = ensurePose(actor);
+    const sel = clipSpriteRect(actor, session.ui.spriteSelection);
+    if (!sel) {
+      setStatus("Select an area on the sprite first.", true);
+      return;
+    }
+    session.ui.lastSurface = "sprite";
+    const changed = edit("sprites", (project) => mirrorSpriteSelection(project, actorById(project, actor.id), pose, sel));
+    setStatus(changed ? "Mirrored the selection." : "Mirror made no change.");
   }
 
   function stepFrame(delta) {
