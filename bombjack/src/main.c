@@ -22,6 +22,22 @@
 #define IN_RIGHT 0x08
 #define IN_FIRE  0x10
 
+/* Speeds are eighths of a pixel per frame. */
+#define RUN          12
+#define GRAVITY      1
+#define JUMP_VY     -10
+#define LIFT         2
+#define LIFT_UP      4
+#define HOLD_FRAMES  8
+#define HOLD_UP      30
+#define RISE_CAP    -18
+#define RISE_CAP_UP -48
+#define FALL_CAP     10
+#define FAST_FALL    12
+#define FAST_CAP     24
+#define SLOW_FALL    3
+#define FLUTTER      10
+
 #define MAX_EN   4
 #define MAX_BOMB 24
 
@@ -59,6 +75,9 @@ static unsigned char lives;
 static unsigned char lock;
 static unsigned char grounded;
 static unsigned char drop;
+static unsigned char jump_on;
+static unsigned char jump_hold;
+static unsigned char flutter;
 static unsigned char hurt;
 static unsigned char win;
 static unsigned char gameover;
@@ -73,41 +92,50 @@ static int jy;
 static int vx;
 static int vy;
 
+/* Column is active-low on port A. Row is a bit of port B.
+   held is the port-1 stick, which pulls those rows low in every column. */
+static unsigned char key_down(unsigned char column, unsigned char row,
+                              unsigned char held) {
+    CIA1.pra = column;
+    return (unsigned char)(((CIA1.prb | held) & row) == 0);
+}
+
 static unsigned char joy(void) {
     unsigned char v;
     unsigned char r;
+    unsigned char joy1;
+    unsigned char joy2;
 
     v = 0;
     CIA1.ddra = 0xFF;
-    CIA1.pra = (unsigned char)~0x02;
-    r = CIA1.prb;
-    if ((r & 0x02) == 0) {
-        v |= IN_UP;
-    }
-    CIA1.pra = (unsigned char)~0x04;
-    r = CIA1.prb;
-    if ((r & 0x02) == 0) {
-        v |= IN_LEFT;
-    }
-    if ((r & 0x04) == 0) {
-        v |= IN_RIGHT;
-    }
-    CIA1.pra = (unsigned char)~0x20;
-    r = CIA1.prb;
-    if ((r & 0x02) == 0) {
-        v |= IN_DOWN;
-    }
-    CIA1.pra = (unsigned char)~0x10;
-    r = CIA1.prb;
-    if ((r & 0x80) == 0) {
-        v |= IN_FIRE;
-    }
+    CIA1.pra = 0xFF;
+    joy1 = (unsigned char)((~CIA1.prb) & 0x1F);
+
     CIA1.ddra = 0x00;
     r = CIA1.pra;
     r = CIA1.pra;
-    v |= (unsigned char)((~r) & 0x1F);
-    r = CIA1.prb;
-    v |= (unsigned char)((~r) & 0x1F);
+    joy2 = (unsigned char)((~r) & 0x1F);
+
+    CIA1.ddra = 0xFF;
+    CIA1.pra = 0xFF;
+    if (key_down((unsigned char)~0x02, 0x02, joy1)) {
+        v |= IN_UP;             /* W, column 1 row 1 */
+    }
+    if (key_down((unsigned char)~0x02, 0x04, joy1)) {
+        v |= IN_LEFT;           /* A, column 1 row 2 */
+    }
+    if (key_down((unsigned char)~0x02, 0x20, joy1)) {
+        v |= IN_DOWN;           /* S, column 1 row 5 */
+    }
+    if (key_down((unsigned char)~0x04, 0x04, joy1)) {
+        v |= IN_RIGHT;          /* D, column 2 row 2 */
+    }
+    if (key_down((unsigned char)~0x80, 0x10, joy1)) {
+        v |= IN_FIRE;           /* space, column 7 row 4 */
+    }
+    CIA1.pra = 0xFF;
+    v |= joy1;
+    v |= joy2;
     return v;
 }
 
@@ -300,6 +328,8 @@ static void jack_home(void) {
     grounded = 1;
     lock = 0;
     drop = 0;
+    jump_hold = 0;
+    flutter = 0;
 }
 
 static void refill(void) {
@@ -362,28 +392,22 @@ static void move_jack(unsigned char in) {
     int new_foot;
     int left;
     int right;
+    int cap;
     unsigned char p;
+    unsigned char jump;
+    unsigned char pressed;
+    unsigned char took_off;
+
+    jump = (unsigned char)((in & IN_FIRE) != 0);
+    pressed = (unsigned char)(jump && !jump_on);
+    took_off = 0;
 
     if (in & IN_LEFT) {
-        vx -= 3;
+        vx = -RUN;
     } else if (in & IN_RIGHT) {
-        vx += 3;
-    } else if (vx > 0) {
-        vx -= 2;
-        if (vx < 0) {
-            vx = 0;
-        }
-    } else if (vx < 0) {
-        vx += 2;
-        if (vx > 0) {
-            vx = 0;
-        }
-    }
-    if (vx > 14) {
-        vx = 14;
-    }
-    if (vx < -14) {
-        vx = -14;
+        vx = RUN;
+    } else {
+        vx = 0;
     }
     jx += vx;
     px = jx >> 3;
@@ -401,16 +425,27 @@ static void move_jack(unsigned char in) {
     if (grounded) {
         left = px + 2;
         right = px + JACK_W - 2;
-        if (in & IN_DOWN) {
+        jump_hold = 0;
+        flutter = 0;
+        if ((in & IN_DOWN) && lock != 255) {
             grounded = 0;
-            drop = 10;
-            vy = 6;
-        } else if (in & IN_UP) {
+            drop = 8;
+            vy = FAST_FALL;
+        } else if (pressed) {
             grounded = 0;
-            vy = -6;
+            took_off = 1;
+            vy = JUMP_VY;
+            if (in & IN_UP) {
+                jump_hold = HOLD_UP;
+            } else {
+                jump_hold = HOLD_FRAMES;
+            }
+        } else if (lock == 255) {
+            vy = 0;
         } else if (right <= (int)plat_x[lock] ||
                    left >= (int)plat_x[lock] + (int)plat_w[lock]) {
             grounded = 0;
+            vy = 0;
         } else {
             vy = 0;
             jy = ((int)plat_y[lock] - JACK_H) << 3;
@@ -418,26 +453,45 @@ static void move_jack(unsigned char in) {
     }
 
     if (!grounded) {
-        if (in & IN_UP) {
-            vy -= 3;
-        } else if (in & IN_DOWN) {
-            vy += 3;
-        } else if (vy > 0) {
-            vy -= 2;
-            if (vy < 0) {
-                vy = 0;
+        if (!took_off && pressed && vy < 0) {
+            vy = 0;
+            jump_hold = 0;
+        } else if (!took_off && pressed) {
+            flutter = FLUTTER;
+            vy = SLOW_FALL;
+        }
+        if (in & IN_DOWN) {
+            flutter = 0;
+            jump_hold = 0;
+            if (vy < FAST_FALL) {
+                vy = FAST_FALL;
             }
-        } else if (vy < 0) {
-            vy += 2;
-            if (vy > 0) {
-                vy = 0;
+            if (vy > FAST_CAP) {
+                vy = FAST_CAP;
+            }
+        } else if (flutter) {
+            --flutter;
+            if (vy > SLOW_FALL) {
+                vy = SLOW_FALL;
+            }
+        } else {
+            vy += GRAVITY;
+            if (vy > FALL_CAP) {
+                vy = FALL_CAP;
             }
         }
-        if (vy > 14) {
-            vy = 14;
-        }
-        if (vy < -14) {
-            vy = -14;
+        if (jump && jump_hold && vy < 0) {
+            if (in & IN_UP) {
+                vy -= LIFT_UP;
+                cap = RISE_CAP_UP;
+            } else {
+                vy -= LIFT;
+                cap = RISE_CAP;
+            }
+            if (vy < cap) {
+                vy = cap;
+            }
+            --jump_hold;
         }
         old_foot = (jy >> 3) + JACK_H;
         jy += vy;
@@ -445,20 +499,23 @@ static void move_jack(unsigned char in) {
         if (py < PLAY_Y0) {
             py = PLAY_Y0;
             vy = 0;
+            jump_hold = 0;
             jy = py << 3;
         }
         if (py + JACK_H > PLAY_Y1) {
             py = PLAY_Y1 - JACK_H;
             vy = 0;
+            grounded = 1;
+            lock = 255;
             jy = py << 3;
         }
-        new_foot = (jy >> 3) + JACK_H;
+        new_foot = py + JACK_H;
         if (drop) {
             --drop;
         }
-        if (!drop && vy >= 0) {
-            left = (jx >> 3) + 2;
-            right = (jx >> 3) + JACK_W - 2;
+        if (!grounded && !drop && !(in & IN_DOWN) && vy >= 0) {
+            left = px + 2;
+            right = px + JACK_W - 2;
             for (p = 0; p < plat_count; ++p) {
                 if (old_foot <= (int)plat_y[p] && new_foot >= (int)plat_y[p] &&
                     right > (int)plat_x[p] &&
@@ -466,12 +523,14 @@ static void move_jack(unsigned char in) {
                     grounded = 1;
                     lock = p;
                     vy = 0;
+                    flutter = 0;
                     jy = ((int)plat_y[p] - JACK_H) << 3;
                     break;
                 }
             }
         }
     }
+    jump_on = jump;
 }
 
 static void move_enemies(void) {
