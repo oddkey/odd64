@@ -1,0 +1,5 @@
+*.o
+*.prg
+*.map
+*.lbl
+vice.png

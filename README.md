@@ -6,4 +6,5 @@ In this repository I have collected some of my odd Commodore 64 projects.
 * [cc65-versions-of-basic-examples](cc65-versions-of-basic-examples/README.md) - Recreating the Commodore 64 User Guide code samples in cc65
 * [CharEd64](chared64/README.md) - A browser editor for Commodore 64 character sets and tile screens
 * [bombjack](bombjack/README.md) - The first board of Bomb Jack, a sphinx round written in cc65
+* [loderunner](loderunner/README.md) - One Lode Runner screen on a multicolor bitmap, 10x10 blocks, written in cc65
 * [maze](maze/README.md) - Maze 2046, a PETSCII maze with a hardware-scrolled viewport, written in cc65
