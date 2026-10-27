@@ -1,0 +1,8 @@
+*.o
+*.prg
+*.map
+*.lbl
+src/board.s
+src/hud.inc
+preview.png
+vice.png
