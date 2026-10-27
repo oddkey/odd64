@@ -40,11 +40,11 @@
 #define CAUSE_DEAD 1
 #define CAUSE_WIN  2
 
-/* Body matches one 10x10 block, and the sprite picture fills that
-   block, so it cannot stick out through a wall. */
+/* Body matches one 10x10 block. The picture is one pixel taller
+   than the block and lines up with its left edge. */
 #define BODY       10
-#define SPRITE_DX  4
-#define SPRITE_LIFT 0
+#define SPRITE_DX  0
+#define SPRITE_LIFT 1
 #define PLAYER_SPEED 2
 #define GUARD_SPEED  1
 #define FONT       ((unsigned char *)0x7000)
@@ -56,15 +56,20 @@ extern unsigned char sprites[];
 
 /* Bit 4 is the leftmost of five multicolor pixels. Each one is two
    hires dots wide, so the block still covers 10 by 10 hires pixels.
-   Bricks are a running bond, ladders a rail with wide gaps, the rope
-   a single line, and the chest a white box with a red middle. */
+   Even columns carry the mortar; odd columns are solid. Side by side
+   that is the wide running bond from the real screen. The bottom row
+   is the solid bar under the floor. */
 static const unsigned int PAT_BRICK[10] = {
-    0x1D, 0x1D, 0x1D, 0x00, 0x17,
-    0x17, 0x17, 0x17, 0x00, 0x1D
+    0x1D, 0x1D, 0x1D, 0x1D, 0x00,
+    0x17, 0x17, 0x17, 0x17, 0x17
+};
+static const unsigned int PAT_SOLID[10] = {
+    0x1F, 0x1F, 0x1F, 0x1F, 0x1F,
+    0x1F, 0x1F, 0x1F, 0x1F, 0x1F
 };
 static const unsigned int PAT_LADDER[10] = {
-    0x11, 0x11, 0x11, 0x1F, 0x11,
-    0x11, 0x11, 0x1F, 0x11, 0x1F
+    0x12, 0x12, 0x1E, 0x12, 0x12,
+    0x12, 0x1E, 0x12, 0x12, 0x12
 };
 static const unsigned int PAT_ROPE[10] = {
     0x00, 0x00, 0x00, 0x00, 0x1F,
@@ -72,11 +77,11 @@ static const unsigned int PAT_ROPE[10] = {
 };
 static const unsigned int PAT_CHEST[10] = {
     0x00, 0x00, 0x00, 0x00, 0x00,
-    0x0E, 0x0A, 0x0E, 0x00, 0x00
+    0x1E, 0x12, 0x12, 0x12, 0x1E
 };
 static const unsigned int PAT_GEM[10] = {
     0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x04, 0x00, 0x00, 0x00
+    0x00, 0x0C, 0x0C, 0x0C, 0x00
 };
 
 /* Screen codes, not PETSCII: A is 1. */
@@ -245,6 +250,13 @@ extern void blit_block(const unsigned int *rows, unsigned int x,
                        unsigned int y, unsigned char color);
 extern void setup_split(void);
 
+static const unsigned int *brick_rows(unsigned char c, unsigned char r) {
+    if (r >= ROWS - 1 || (c & 1)) {
+        return PAT_SOLID;
+    }
+    return PAT_BRICK;
+}
+
 static void blit_tile(unsigned char c, unsigned char r) {
     unsigned char t;
     const unsigned int *rows;
@@ -252,12 +264,12 @@ static void blit_tile(unsigned char c, unsigned char r) {
     t = map[r][c];
     rows = 0;
     if (t == T_BRICK) {
-        rows = PAT_BRICK;
+        rows = brick_rows(c, r);
     } else if (t == T_LADDER) {
         /* A ladder in a floor keeps the bricks behind its rails. */
         if ((c > 0 && map[r][c - 1] == T_BRICK) ||
             (c + 1 < COLS && map[r][c + 1] == T_BRICK)) {
-            blit_block(PAT_BRICK, (unsigned int)(OX + (int)c * TILE),
+            blit_block(brick_rows(c, r), (unsigned int)(OX + (int)c * TILE),
                        (unsigned int)(OY + (int)r * TILE), COLOR_RED);
         }
         rows = PAT_LADDER;
@@ -307,11 +319,12 @@ static void blit_span(unsigned char c0, unsigned char c1,
     }
 }
 
-static void blit_char(unsigned char cx, unsigned char cy, unsigned char sc) {
+static void blit_char(unsigned char cx, unsigned char cy, unsigned char sc,
+                      unsigned char color) {
     unsigned char row;
     unsigned int off;
 
-    screen[(unsigned int)cy * 40 + cx] = (unsigned char)(COLOR_CYAN << 4);
+    screen[(unsigned int)cy * 40 + cx] = (unsigned char)(color << 4);
     COLOR_RAM[(unsigned int)cy * 40 + cx] = 0;
     off = (unsigned int)cy * 320 + (unsigned int)cx * 8;
     for (row = 0; row < 8; ++row) {
@@ -320,16 +333,16 @@ static void blit_char(unsigned char cx, unsigned char cy, unsigned char sc) {
 }
 
 static void put_str(unsigned char col, unsigned char row,
-                    const unsigned char *s) {
+                    const unsigned char *s, unsigned char color) {
     while (*s) {
-        blit_char(col, row, *s);
+        blit_char(col, row, *s, color);
         ++col;
         ++s;
     }
 }
 
 static void draw_num(unsigned char col, unsigned char row, unsigned long v,
-                     unsigned char n) {
+                     unsigned char n, unsigned char color) {
     unsigned char i;
     unsigned char buf[6];
     unsigned long q;
@@ -340,7 +353,7 @@ static void draw_num(unsigned char col, unsigned char row, unsigned long v,
         q /= 10;
     }
     for (i = 0; i < n; ++i) {
-        blit_char((unsigned char)(col + i), row, buf[i]);
+        blit_char((unsigned char)(col + i), row, buf[i], color);
     }
 }
 
@@ -348,15 +361,15 @@ static void draw_hud(void) {
     unsigned char i;
 
     for (i = 0; i < 40; ++i) {
-        blit_char(i, 22, 32);
-        blit_char(i, 23, 32);
+        blit_char(i, 22, 32, COLOR_RED);
+        blit_char(i, 23, 32, COLOR_RED);
     }
-    put_str(1, 23, TXT_SCORE);
-    draw_num(7, 23, score, 6);
-    put_str(15, 23, TXT_MEN);
-    draw_num(19, 23, lives, 3);
-    put_str(24, 23, TXT_LEVEL);
-    draw_num(30, 23, level_no, 3);
+    put_str(1, 23, TXT_SCORE, COLOR_RED);
+    draw_num(7, 23, score, 6, COLOR_CYAN);
+    put_str(15, 23, TXT_MEN, COLOR_RED);
+    draw_num(19, 23, lives, 3, COLOR_CYAN);
+    put_str(24, 23, TXT_LEVEL, COLOR_RED);
+    draw_num(30, 23, level_no, 3, COLOR_CYAN);
 }
 
 static void clear_hw(unsigned char cx, unsigned char cy) {
@@ -749,7 +762,7 @@ static void kill_player(void) {
     VIC.bordercolor = COLOR_RED;
     if (lives == 0) {
         phase = OVER;
-        put_str(15, 22, TXT_OVER);
+        put_str(15, 22, TXT_OVER, COLOR_RED);
         fire_was = 1;
         return;
     }

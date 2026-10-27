@@ -1,37 +1,37 @@
-; Runner frames, drawn to sit inside one 10x10 block.
-; Order: run, run, climb, rope. Column 4 of the sprite is the
-; left edge of the block.
+; Runner, stride, climb, and rope. The pictures match the poses in
+; Lode_Runner.webp and sit in the 10-pixel block, one pixel taller
+; so the cap can clear the shoulders.
 .segment "SPRITES"
 .export _sprites
 _sprites:
-        .byte 3,128,0,7,128,0,3,128
-        .byte 0,7,192,0,3,128,0,2
-        .byte 128,0,4,64,0,8,32,0
-        .byte 0,32,0,0,64,0,0,0
+        .byte 16,0,0,56,0,0,56,0
+        .byte 0,24,0,0,94,0,0,123
+        .byte 0,0,24,0,0,60,0,0
+        .byte 102,0,0,99,0,0,3,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
-        .byte 3,128,0,7,128,0,3,128
-        .byte 0,7,192,0,3,128,0,3
-        .byte 128,0,1,0,0,2,128,0
-        .byte 2,128,0,4,64,0,0,0
+        .byte 16,0,0,56,0,0,56,0
+        .byte 0,24,0,0,94,0,0,123
+        .byte 0,0,24,0,0,108,0,0
+        .byte 198,0,0,131,0,0,64,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
-        .byte 4,64,0,6,192,0,7,192
-        .byte 0,3,128,0,3,128,0,5
-        .byte 64,0,4,64,0,4,64,0
-        .byte 4,64,0,4,64,0,0,0
+        .byte 24,0,0,24,128,0,31,128
+        .byte 0,156,0,0,252,0,0,28
+        .byte 0,0,28,0,0,54,0,0
+        .byte 55,0,0,48,0,0,112,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
-        .byte 1,0,0,3,128,0,6,128
-        .byte 0,3,128,0,3,128,0,2
-        .byte 128,0,2,128,0,2,64,0
-        .byte 2,32,0,2,32,0,0,0
+        .byte 8,0,0,28,0,0,46,0
+        .byte 0,28,0,0,28,0,0,20
+        .byte 0,0,20,0,0,18,0,0
+        .byte 17,0,0,17,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
         .byte 0,0,0,0,0,0,0,0
