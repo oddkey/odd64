@@ -2,7 +2,7 @@
 
 A cc65 game for the Commodore 64. One level, laid out from a play of the original: bricks, ladders, ropes, six piles of gold, and three guards. The runner digs the floor, the guards chase, and the way out is the top of the screen once the gold is gone.
 
-Bricks, ladders, ropes and gold are drawn as 10 by 10 pixel blocks in a multicolor bitmap. Each block is five multicolor pixels wide, and each of those pixels is two hires dots, so the block still covers 10 by 10. The runner and the guards are hires sprites. The drawings are original. The gif was only used to read the board. A hardware cell can keep the black background plus three inks, so a brick, a ladder and a pile of gold that share a cell each keep their own color. The status line is hires text.
+Bricks, ladders, ropes and gold are drawn as blocks 10 pixels wide and 11 pixels tall in a multicolor bitmap. Each block is five multicolor pixels wide, and each of those pixels is two hires dots, so the block still covers 10 pixels across. The brick picture fills the first 10 rows, and the 11th row is the gap before the next one. Under the floor is a four-pixel bar, not another tile, and the status line sits below that. The board is 28 columns, inset 20 pixels from each side of the screen. The runner and the guards are hires sprites, and they turn to face the way they are walking. The drawings are original. The gif was only used to read the board. A hardware cell can keep the black background plus three inks, so a brick, a ladder and a pile of gold that share a cell each keep their own color. The status line uses the same 10-pixel columns, so each letter lines up with a column of bricks.
 
 ## Play
 

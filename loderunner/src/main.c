@@ -17,11 +17,19 @@
 #define IN_RIGHT 0x08
 #define IN_FIRE  0x10
 
-#define COLS     29
+/* 28 columns. Each block is 10 pixels wide and 11 tall, inset 20
+   pixels from the side and 11 from the top. The status letters use
+   the same 10-pixel columns. */
+#define COLS     28
 #define ROWS     16
 #define TILE     10
-#define OX       16
-#define OY       16
+#define TILE_H   11
+#define OX       20
+#define OY       11
+/* The last row is not an 11-pixel tile. A four-pixel bar sits under
+   the floor, then the status line. */
+#define STRIPE_Y 176
+#define HUD_Y    184
 
 #define T_EMPTY  0
 #define T_BRICK  1
@@ -45,72 +53,142 @@
 #define BODY       10
 #define SPRITE_DX  0
 #define SPRITE_LIFT 1
-#define PLAYER_SPEED 2
-#define GUARD_SPEED  1
-#define FONT       ((unsigned char *)0x7000)
+#define PLAYER_SPEED 4
+#define GUARD_SPEED  2
 #define SPRITE_BASE 144
 
 extern unsigned char bitmap[];
 extern unsigned char screen[];
 extern unsigned char sprites[];
 
-/* Bit 4 is the leftmost of five multicolor pixels. Each one is two
-   hires dots wide, so the block still covers 10 by 10 hires pixels.
-   Even columns carry the mortar; odd columns are solid. Side by side
-   that is the wide running bond from the real screen. The bottom row
-   is the solid bar under the floor. */
-static const unsigned int PAT_BRICK[10] = {
+/* Bit 4 is the leftmost of five multicolor pixels. A block is 10
+   pixels wide and 11 tall. The brick picture is 10 pixels, and the
+   11th pixel is the gap before the next row. Ladder rails cross
+   that gap. */
+static const unsigned int PAT_BRICK[11] = {
     0x1D, 0x1D, 0x1D, 0x1D, 0x00,
-    0x17, 0x17, 0x17, 0x17, 0x17
+    0x17, 0x17, 0x17, 0x17, 0x17,
+    0x00
 };
-static const unsigned int PAT_SOLID[10] = {
-    0x1F, 0x1F, 0x1F, 0x1F, 0x1F,
-    0x1F, 0x1F, 0x1F, 0x1F, 0x1F
-};
-static const unsigned int PAT_LADDER[10] = {
+static const unsigned int PAT_LADDER[11] = {
     0x12, 0x12, 0x1E, 0x12, 0x12,
-    0x12, 0x1E, 0x12, 0x12, 0x12
+    0x12, 0x1E, 0x12, 0x12, 0x12,
+    0x12
 };
-static const unsigned int PAT_ROPE[10] = {
-    0x00, 0x00, 0x00, 0x00, 0x1F,
-    0x00, 0x00, 0x00, 0x00, 0x00
-};
-static const unsigned int PAT_CHEST[10] = {
+static const unsigned int PAT_ROPE[11] = {
+    0x00, 0x1F, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00,
-    0x1E, 0x12, 0x12, 0x12, 0x1E
+    0x00
 };
-static const unsigned int PAT_GEM[10] = {
+static const unsigned int PAT_CHEST[11] = {
     0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x0C, 0x0C, 0x0C, 0x00
+    0x1E, 0x12, 0x12, 0x12, 0x1E,
+    0x00
+};
+static const unsigned int PAT_GEM[11] = {
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x0C, 0x0C, 0x0C, 0x00,
+    0x00
+};
+/* Four solid rows. The rest stays clear so the bar is not a tile. */
+static const unsigned int PAT_STRIPE[11] = {
+    0x1F, 0x1F, 0x1F, 0x1F, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00
 };
 
-/* Screen codes, not PETSCII: A is 1. */
-static const unsigned char TXT_SCORE[] = {19, 3, 15, 18, 5, 32, 0};
-static const unsigned char TXT_MEN[] = {13, 5, 14, 32, 0};
-static const unsigned char TXT_LEVEL[] = {12, 5, 22, 5, 12, 32, 0};
-static const unsigned char TXT_OVER[] = {7, 1, 13, 5, 32, 15, 22, 5, 18, 0};
+/* Status letters are 10 by 10, like the bricks. Bit 4 is the leftmost
+   of five multicolor pixels. The fifth pixel is the gap, so the next
+   letter starts on the next column. The last two rows are the gap
+   under the letter. */
+static const unsigned int G_SPACE[11] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+static const unsigned int G_0[11] = {
+    0x1E, 0x12, 0x12, 0x12, 0x16, 0x16, 0x16, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_1[11] = {
+    0x0C, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E, 0x0E, 0x00, 0x00
+};
+static const unsigned int G_2[11] = {
+    0x1E, 0x12, 0x02, 0x1E, 0x10, 0x10, 0x16, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_3[11] = {
+    0x1E, 0x02, 0x02, 0x0E, 0x02, 0x02, 0x02, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_4[11] = {
+    0x12, 0x12, 0x12, 0x1E, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00
+};
+static const unsigned int G_5[11] = {
+    0x1E, 0x10, 0x10, 0x1E, 0x06, 0x06, 0x06, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_6[11] = {
+    0x1E, 0x10, 0x10, 0x1E, 0x12, 0x12, 0x12, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_7[11] = {
+    0x1E, 0x02, 0x02, 0x04, 0x04, 0x08, 0x08, 0x08, 0x00, 0x00
+};
+static const unsigned int G_8[11] = {
+    0x1E, 0x12, 0x12, 0x1E, 0x12, 0x12, 0x12, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_9[11] = {
+    0x1E, 0x12, 0x12, 0x1E, 0x02, 0x02, 0x02, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_A[11] = {
+    0x1E, 0x12, 0x12, 0x1E, 0x12, 0x12, 0x12, 0x12, 0x00, 0x00
+};
+static const unsigned int G_C[11] = {
+    0x1E, 0x12, 0x10, 0x10, 0x18, 0x18, 0x1A, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_E[11] = {
+    0x1E, 0x18, 0x18, 0x1C, 0x10, 0x10, 0x10, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_G[11] = {
+    0x1E, 0x12, 0x10, 0x10, 0x16, 0x12, 0x12, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_L[11] = {
+    0x10, 0x10, 0x10, 0x10, 0x18, 0x18, 0x18, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_M[11] = {
+    0x12, 0x1A, 0x1E, 0x1E, 0x12, 0x12, 0x12, 0x12, 0x00, 0x00
+};
+static const unsigned int G_N[11] = {
+    0x12, 0x12, 0x1A, 0x1E, 0x1E, 0x16, 0x12, 0x12, 0x00, 0x00
+};
+static const unsigned int G_O[11] = {
+    0x1E, 0x16, 0x16, 0x12, 0x12, 0x12, 0x12, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_R[11] = {
+    0x1E, 0x12, 0x12, 0x1E, 0x1C, 0x1C, 0x1A, 0x1A, 0x00, 0x00
+};
+static const unsigned int G_S[11] = {
+    0x1E, 0x12, 0x10, 0x1E, 0x06, 0x06, 0x16, 0x1E, 0x00, 0x00
+};
+static const unsigned int G_V[11] = {
+    0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1E, 0x0C, 0x08, 0x00, 0x00
+};
 
 /*
  * Columns run left to right. # brick, H ladder, - rope, * gold.
  * Row 14 is the floor you can dig. Row 15 is the bedrock under it.
  */
 static const char *plan[ROWS] = {
-    "....*........................",
-    "#######H#######..............",
-    ".......H----------...........",
-    ".......H...............*.....",
-    ".......H....##H...#######H##.",
-    ".......H....##H..........H...",
-    ".......H....##H.......*..H...",
-    "##H#####....########H#######.",
-    "..H.................H........",
-    "#########H##########H........",
-    ".........H----------H........",
-    ".......*.H..........H...*....",
-    "....H######.........#######H.",
-    "....H............*.........H.",
-    "#############################",
-    "#############################"
+    "....*.......................",
+    "#######H#######.............",
+    ".......H----------..........",
+    ".......H...............*....",
+    ".......H....##H...#######H##",
+    ".......H....##H..........H..",
+    ".......H....##H.......*..H..",
+    "##H#####....########H#######",
+    "..H.................H.......",
+    "#########H##########H.......",
+    ".........H----------H.......",
+    ".......*.H..........H...*...",
+    "....H######.........#######H",
+    "....H............*.........H",
+    "############################",
+    "############################"
 };
 
 static unsigned char map[ROWS][COLS];
@@ -136,11 +214,14 @@ static unsigned char cause;
 static unsigned char wait;
 static unsigned char fire_was;
 static unsigned char pframe;
+static unsigned char pface;
+static unsigned char gface[GUARDS];
 static unsigned int tick;
 static unsigned char sound_t;
 static unsigned char sound_wave;
 static unsigned long score;
 static unsigned char div10[320];
+static unsigned char div11[320];
 
 static unsigned char key_down(unsigned char column, unsigned char row,
                               unsigned char held) {
@@ -232,6 +313,16 @@ static void make_div10(void) {
             ++q;
         }
     }
+    q = 0;
+    r = 0;
+    for (i = 0; i < 320; ++i) {
+        div11[i] = q;
+        ++r;
+        if (r == TILE_H) {
+            r = 0;
+            ++q;
+        }
+    }
 }
 
 static unsigned char tile_color(unsigned char t) {
@@ -248,14 +339,8 @@ static unsigned char tile_color(unsigned char t) {
    so a shared cell keeps every block's own color. */
 extern void blit_block(const unsigned int *rows, unsigned int x,
                        unsigned int y, unsigned char color);
-extern void setup_split(void);
-
-static const unsigned int *brick_rows(unsigned char c, unsigned char r) {
-    if (r >= ROWS - 1 || (c & 1)) {
-        return PAT_SOLID;
-    }
-    return PAT_BRICK;
-}
+static void draw_stripe(void);
+static int stand_y(unsigned char row);
 
 static void blit_tile(unsigned char c, unsigned char r) {
     unsigned char t;
@@ -263,14 +348,18 @@ static void blit_tile(unsigned char c, unsigned char r) {
 
     t = map[r][c];
     rows = 0;
+    /* The bedrock row is kept for collision. On screen it is the bar. */
+    if (r + 1 >= ROWS) {
+        return;
+    }
     if (t == T_BRICK) {
-        rows = brick_rows(c, r);
+        rows = PAT_BRICK;
     } else if (t == T_LADDER) {
-        /* A ladder in a floor keeps the bricks behind its rails. */
+        /* A ladder in a floor keeps the same 10x10 brick behind its rails. */
         if ((c > 0 && map[r][c - 1] == T_BRICK) ||
             (c + 1 < COLS && map[r][c + 1] == T_BRICK)) {
-            blit_block(brick_rows(c, r), (unsigned int)(OX + (int)c * TILE),
-                       (unsigned int)(OY + (int)r * TILE), COLOR_RED);
+            blit_block(PAT_BRICK, (unsigned int)(OX + (int)c * TILE),
+                       (unsigned int)(OY + (int)r * TILE_H), COLOR_RED);
         }
         rows = PAT_LADDER;
     } else if (t == T_ROPE) {
@@ -278,14 +367,14 @@ static void blit_tile(unsigned char c, unsigned char r) {
     }
     if (t == T_GOLD) {
         blit_block(PAT_CHEST, (unsigned int)(OX + (int)c * TILE),
-                   (unsigned int)(OY + (int)r * TILE), COLOR_WHITE);
+                   (unsigned int)(OY + (int)r * TILE_H), COLOR_WHITE);
         blit_block(PAT_GEM, (unsigned int)(OX + (int)c * TILE),
-                   (unsigned int)(OY + (int)r * TILE), COLOR_RED);
+                   (unsigned int)(OY + (int)r * TILE_H), COLOR_RED);
         return;
     }
     if (rows) {
         blit_block(rows, (unsigned int)(OX + (int)c * TILE),
-                   (unsigned int)(OY + (int)r * TILE), tile_color(t));
+                   (unsigned int)(OY + (int)r * TILE_H), tile_color(t));
     }
 }
 
@@ -319,57 +408,87 @@ static void blit_span(unsigned char c0, unsigned char c1,
     }
 }
 
-static void blit_char(unsigned char cx, unsigned char cy, unsigned char sc,
-                      unsigned char color) {
+static const unsigned int *glyph_rows(char ch) {
+    static const char name[] = "0123456789ACEGLMNORSV";
+    static const unsigned int *const tab[] = {
+        G_0, G_1, G_2, G_3, G_4, G_5, G_6, G_7, G_8, G_9,
+        G_A, G_C, G_E, G_G, G_L, G_M, G_N, G_O, G_R, G_S, G_V
+    };
+    unsigned char i;
+
+    i = 0;
+    while (name[i]) {
+        if (name[i] == ch) {
+            return tab[i];
+        }
+        ++i;
+    }
+    return G_SPACE;
+}
+
+/* Clear five multicolor pixels by ten rows. A later letter must not
+   leave the previous digit behind, and it must not erase its neighbor. */
+static void wipe_mc(unsigned int x, unsigned int y) {
     unsigned char row;
+    unsigned char col;
+    unsigned char shift;
+    unsigned int xx;
+    unsigned int yy;
     unsigned int off;
 
-    screen[(unsigned int)cy * 40 + cx] = (unsigned char)(color << 4);
-    COLOR_RAM[(unsigned int)cy * 40 + cx] = 0;
-    off = (unsigned int)cy * 320 + (unsigned int)cx * 8;
-    for (row = 0; row < 8; ++row) {
-        bitmap[off + row] = FONT[(unsigned int)sc * 8 + row];
+    for (row = 0; row < TILE; ++row) {
+        yy = y + row;
+        for (col = 0; col < 5; ++col) {
+            xx = x + (unsigned int)col * 2;
+            off = (yy >> 3) * 320 + (xx >> 3) * 8 + (yy & 7);
+            shift = (unsigned char)(6 - (xx & 6));
+            bitmap[off] = (unsigned char)(bitmap[off] &
+                          (unsigned char)~(3U << shift));
+        }
     }
 }
 
-static void put_str(unsigned char col, unsigned char row,
-                    const unsigned char *s, unsigned char color) {
+static void draw_glyph(unsigned char col, unsigned int y, char ch,
+                       unsigned char color) {
+    unsigned int x;
+
+    x = (unsigned int)(OX + (int)col * TILE);
+    wipe_mc(x, y);
+    blit_block(glyph_rows(ch), x, y, color);
+}
+
+static void put_str(unsigned char col, unsigned int y, const char *s,
+                    unsigned char color) {
     while (*s) {
-        blit_char(col, row, *s, color);
+        draw_glyph(col, y, *s, color);
         ++col;
         ++s;
     }
 }
 
-static void draw_num(unsigned char col, unsigned char row, unsigned long v,
+static void draw_num(unsigned char col, unsigned int y, unsigned long v,
                      unsigned char n, unsigned char color) {
     unsigned char i;
-    unsigned char buf[6];
+    char buf[8];
     unsigned long q;
 
     q = v;
     for (i = n; i > 0; --i) {
-        buf[i - 1] = (unsigned char)(48 + (unsigned char)(q % 10));
+        buf[i - 1] = (char)('0' + (unsigned char)(q % 10));
         q /= 10;
     }
     for (i = 0; i < n; ++i) {
-        blit_char((unsigned char)(col + i), row, buf[i], color);
+        draw_glyph((unsigned char)(col + i), y, buf[i], color);
     }
 }
 
 static void draw_hud(void) {
-    unsigned char i;
-
-    for (i = 0; i < 40; ++i) {
-        blit_char(i, 22, 32, COLOR_RED);
-        blit_char(i, 23, 32, COLOR_RED);
-    }
-    put_str(1, 23, TXT_SCORE, COLOR_RED);
-    draw_num(7, 23, score, 6, COLOR_CYAN);
-    put_str(15, 23, TXT_MEN, COLOR_RED);
-    draw_num(19, 23, lives, 3, COLOR_CYAN);
-    put_str(24, 23, TXT_LEVEL, COLOR_RED);
-    draw_num(30, 23, level_no, 3, COLOR_CYAN);
+    put_str(0, HUD_Y, "SCORE", COLOR_RED);
+    draw_num(5, HUD_Y, score, 7, COLOR_CYAN);
+    put_str(13, HUD_Y, "MEN", COLOR_RED);
+    draw_num(16, HUD_Y, lives, 3, COLOR_CYAN);
+    put_str(20, HUD_Y, "LEVEL", COLOR_RED);
+    draw_num(25, HUD_Y, level_no, 3, COLOR_CYAN);
 }
 
 static void clear_hw(unsigned char cx, unsigned char cy) {
@@ -418,9 +537,9 @@ static void draw_cell(unsigned char c, unsigned char r) {
     y1c = 0;
     for (guard = 0; guard < 8; ++guard) {
         x0 = OX + (int)c0 * TILE;
-        y0 = OY + (int)r0 * TILE;
+        y0 = OY + (int)r0 * TILE_H;
         x1 = OX + ((int)c1 + 1) * TILE - 1;
-        y1 = OY + ((int)r1 + 1) * TILE - 1;
+        y1 = OY + ((int)r1 + 1) * TILE_H - 1;
         x0c = (unsigned char)((x0 >> 3));
         y0c = (unsigned char)((y0 >> 3));
         x1c = (unsigned char)((x1 >> 3));
@@ -437,17 +556,17 @@ static void draw_cell(unsigned char c, unsigned char r) {
         if (y0 <= OY) {
             nr0 = 0;
         } else {
-            nr0 = div10[y0 - OY];
+            nr0 = div11[y0 - OY];
         }
         if (x1 >= OX + COLS * TILE) {
             nc1 = COLS - 1;
         } else {
             nc1 = div10[x1 - OX];
         }
-        if (y1 >= OY + ROWS * TILE) {
+        if (y1 >= OY + ROWS * TILE_H) {
             nr1 = ROWS - 1;
         } else {
-            nr1 = div10[y1 - OY];
+            nr1 = div11[y1 - OY];
         }
         if (nc0 == c0 && nc1 == c1 && nr0 == r0 && nr1 == r1) {
             break;
@@ -463,6 +582,18 @@ static void draw_cell(unsigned char c, unsigned char r) {
         }
     }
     blit_span(c0, c1, r0, r1);
+    if (r1 + 1 >= ROWS) {
+        draw_stripe();
+    }
+}
+
+static void draw_stripe(void) {
+    unsigned char c;
+
+    for (c = 0; c < COLS; ++c) {
+        blit_block(PAT_STRIPE, (unsigned int)(OX + (int)c * TILE),
+                   STRIPE_Y, COLOR_RED);
+    }
 }
 
 static void draw_map(void) {
@@ -476,6 +607,7 @@ static void draw_map(void) {
         COLOR_RAM[i] = 0;
     }
     blit_span(0, COLS - 1, 0, ROWS - 1);
+    draw_stripe();
     draw_hud();
 }
 
@@ -525,10 +657,10 @@ static unsigned char cell(int x, int y) {
     }
     dx = x - OX;
     dy = y - OY;
-    if (dx >= COLS * TILE || dy >= ROWS * TILE) {
+    if (dx >= COLS * TILE || dy >= ROWS * TILE_H) {
         return T_BRICK;
     }
-    return map[div10[dy]][div10[dx]];
+    return map[div11[dy]][div10[dx]];
 }
 
 static unsigned char solid(int x, int y) {
@@ -545,7 +677,7 @@ static unsigned char fits(int x, int y) {
     if (y < 0) {
         return 0;
     }
-    if (y > OY + ROWS * TILE - BODY) {
+    if (y > OY + ROWS * TILE_H - BODY) {
         return 0;
     }
     if (solid(x, y) || solid(x + 9, y) || solid(x + 4, y)) {
@@ -584,16 +716,96 @@ static void nudge_y(int x, int *y, int dir, unsigned char n) {
     }
 }
 
-static unsigned char grounded(int x, int y) {
-    unsigned char a;
-    unsigned char b;
+/* A ladder set into a floor is ground. A ladder with open sides is a shaft. */
+static unsigned char is_floor(int x, int y) {
+    int dx;
+    int dy;
+    unsigned char c;
+    unsigned char r;
 
-    a = cell(x + 2, y + BODY);
-    b = cell(x + 7, y + BODY);
-    if (a == T_BRICK || b == T_BRICK) {
+    if (y < OY || x < OX) {
+        return 0;
+    }
+    dx = x - OX;
+    dy = y - OY;
+    if (dx >= COLS * TILE || dy >= ROWS * TILE_H) {
+        return 0;
+    }
+    c = div10[dx];
+    r = div11[dy];
+    if (map[r][c] == T_BRICK) {
+        return 1;
+    }
+    if (map[r][c] != T_LADDER) {
+        return 0;
+    }
+    if (c > 0 && map[r][c - 1] == T_BRICK) {
+        return 1;
+    }
+    if ((unsigned char)(c + 1) < COLS && map[r][c + 1] == T_BRICK) {
         return 1;
     }
     return 0;
+}
+
+static unsigned char grounded(int x, int y) {
+    if (is_floor(x + 2, y + BODY) || is_floor(x + 7, y + BODY)) {
+        return 1;
+    }
+    return 0;
+}
+
+/* Feet sit on the top of a floor. A 2-pixel step skips that line on an
+   11-pixel row, and the body then sticks into the ladder and cannot
+   step onto the bricks beside it. */
+static int support_top(int x, int y) {
+    int rel;
+    unsigned char r;
+
+    if (y + BODY < OY) {
+        return -1;
+    }
+    rel = y + BODY - OY;
+    if (rel > 319) {
+        rel = 319;
+    }
+    if (!is_floor(x + 4, OY + rel)) {
+        return -1;
+    }
+    r = div11[rel];
+    return stand_y(r);
+}
+
+static void plant_feet(int x, int *y) {
+    int top;
+
+    top = support_top(x, *y);
+    if (top < 0) {
+        return;
+    }
+    if (*y > top && *y < top + TILE_H && fits(x, top)) {
+        *y = top;
+    }
+}
+
+static void climb_up(int x, int *y, unsigned char n) {
+    unsigned char i;
+    int ny;
+    int top;
+
+    for (i = 0; i < n; ++i) {
+        ny = *y - 1;
+        top = support_top(x, *y);
+        if (top >= 0 && ny < top &&
+            cell(x + 4, ny + 4) != T_LADDER &&
+            cell(x + 4, ny + BODY) != T_LADDER) {
+            return;
+        }
+        if (!fits(x, ny)) {
+            return;
+        }
+        *y = ny;
+    }
 }
 
 static unsigned char ladder_here(int x, int y) {
@@ -614,7 +826,7 @@ static unsigned char rope_here(int x, int y) {
 }
 
 static int stand_y(unsigned char row) {
-    return OY + (int)row * TILE - BODY;
+    return OY + (int)row * TILE_H - BODY;
 }
 
 static int stand_x(unsigned char col) {
@@ -640,19 +852,6 @@ static int snap_ladder(int x, int y) {
     return OX + c * TILE;
 }
 
-static int snap_feet(int y) {
-    int rel;
-
-    rel = y + BODY - OY;
-    if (rel < 0) {
-        return y;
-    }
-    if (rel > 319) {
-        rel = 319;
-    }
-    return OY + (int)div10[rel] * TILE - BODY;
-}
-
 static unsigned char body_in_hole(int x, int y) {
     unsigned char i;
     int hl;
@@ -663,9 +862,9 @@ static unsigned char body_in_hole(int x, int y) {
             continue;
         }
         hl = OX + (int)hole_c[i] * TILE;
-        ht = OY + (int)hole_r[i] * TILE;
+        ht = OY + (int)hole_r[i] * TILE_H;
         if (x + 9 >= hl && x < hl + TILE && y + (BODY - 1) >= ht &&
-            y < ht + TILE) {
+            y < ht + TILE_H) {
             return 1;
         }
     }
@@ -678,12 +877,14 @@ static void place_actors(void) {
     px = stand_x(8);
     py = stand_y(14);
     pframe = 0;
+    pface = 0;
     for (i = 0; i < GUARDS; ++i) {
         gx[i] = stand_x(gsc[i]);
         gy[i] = stand_y(gsr[i]);
         galive[i] = 1;
         gtrap[i] = 0;
         gwait[i] = 0;
+        gface[i] = 0;
     }
 }
 
@@ -695,7 +896,7 @@ static void grab_gold(int x, int y) {
         return;
     }
     c = div10[x + 4 - OX];
-    r = div10[y + 4 - OY];
+    r = div11[y + 4 - OY];
     if (c >= COLS || r >= ROWS) {
         return;
     }
@@ -708,8 +909,8 @@ static void grab_gold(int x, int y) {
         --gold_left;
     }
     score += 250UL;
-    if (score > 999999UL) {
-        score = 999999UL;
+    if (score > 9999999UL) {
+        score = 9999999UL;
     }
     draw_hud();
     blip(0x30, 0x11);
@@ -725,7 +926,7 @@ static void try_dig(int x, int y, unsigned char side) {
         return;
     }
     c = div10[x + 4 - OX];
-    r = div10[y + BODY - OY];
+    r = div11[y + BODY - OY];
     if (side == 1) {
         tc = c - 1;
     } else {
@@ -762,7 +963,7 @@ static void kill_player(void) {
     VIC.bordercolor = COLOR_RED;
     if (lives == 0) {
         phase = OVER;
-        put_str(15, 22, TXT_OVER, COLOR_RED);
+        put_str(9, 148, "GAME OVER", COLOR_RED);
         fire_was = 1;
         return;
     }
@@ -777,9 +978,9 @@ static void bury(unsigned char c, unsigned char r) {
     int top;
 
     left = OX + (int)c * TILE;
-    top = OY + (int)r * TILE;
+    top = OY + (int)r * TILE_H;
     if (px + 4 >= left && px + 4 < left + TILE &&
-        py + 4 >= top && py + 4 < top + TILE) {
+        py + 4 >= top && py + 4 < top + TILE_H) {
         kill_player();
     }
     for (i = 0; i < GUARDS; ++i) {
@@ -787,11 +988,14 @@ static void bury(unsigned char c, unsigned char r) {
             continue;
         }
         if (gx[i] + 4 >= left && gx[i] + 4 < left + TILE &&
-            gy[i] + 4 >= top && gy[i] + 4 < top + TILE) {
+            gy[i] + 4 >= top && gy[i] + 4 < top + TILE_H) {
             galive[i] = 0;
             gwait[i] = 90;
             gtrap[i] = 0;
             score += 75UL;
+            if (score > 9999999UL) {
+                score = 9999999UL;
+            }
             draw_hud();
             blip(0x10, 0x81);
         }
@@ -843,18 +1047,18 @@ static void move_player(unsigned char in) {
             px = nx;
         }
         for (step = 0; step < PLAYER_SPEED; ++step) {
-            ny = py - 1;
-            if (gold_left && ny < stand_y(1)) {
+            if (gold_left && py - 1 < stand_y(1)) {
                 break;
             }
-            if (!fits(px, ny)) {
+            ny = py;
+            climb_up(px, &py, 1);
+            if (py == ny) {
                 break;
             }
-            py = ny;
             climbing = 1;
         }
     } else if ((in & IN_DOWN) && rope_here(px, py) && !ladder_here(px, py)) {
-        ny = py + TILE;
+        ny = py + TILE_H;
         if (fits(px, ny)) {
             py = ny;
         }
@@ -878,8 +1082,10 @@ static void move_player(unsigned char in) {
         leaving = 1;
         climbing = 1;
     } else if (in & IN_LEFT) {
+        plant_feet(px, &py);
         nudge_x(&px, py, -1, PLAYER_SPEED);
     } else if (in & IN_RIGHT) {
+        plant_feet(px, &py);
         nudge_x(&px, py, 1, PLAYER_SPEED);
     }
 
@@ -889,11 +1095,8 @@ static void move_player(unsigned char in) {
         climbing = 0;
     }
 
-    if (grounded(px, py) && !climbing) {
-        ny = snap_feet(py);
-        if (ny != py && fits(px, ny)) {
-            py = ny;
-        }
+    if (!climbing) {
+        plant_feet(px, &py);
     }
 
     if (climbing) {
@@ -905,6 +1108,11 @@ static void move_player(unsigned char in) {
     } else {
         pframe = 0;
     }
+    if (in & IN_LEFT) {
+        pface = 0;
+    } else if (in & IN_RIGHT) {
+        pface = 1;
+    }
     grab_gold(px, py);
 }
 
@@ -915,7 +1123,7 @@ static int chase_x(int x, int y) {
     int xx;
     int d;
 
-    if (py + TILE > y && y + TILE > py) {
+    if (py + TILE_H > y && y + TILE_H > py) {
         return px;
     }
     best = x;
@@ -961,7 +1169,8 @@ static void step_guard(unsigned char i) {
     y = gy[i];
     if (gtrap[i]) {
         if (!grounded(x, y)) {
-            nudge_y(x, &gy[i], 1, 1);
+            nudge_y(x, &gy[i], 1, GUARD_SPEED);
+            plant_feet(x, &gy[i]);
             return;
         }
         if (gtrap[i] < 255) {
@@ -969,19 +1178,22 @@ static void step_guard(unsigned char i) {
         }
         if (gtrap[i] > TRAP_OUT) {
             dir = (px >= x) ? 1 : -1;
+            gface[i] = (unsigned char)(dir > 0);
             if (fits(x + dir, y) && grounded(x + dir, y)) {
                 gx[i] = x + dir;
-                gy[i] = snap_feet(y);
+                plant_feet(gx[i], &y);
+                gy[i] = y;
                 gtrap[i] = 0;
             } else {
-                nudge_y(x, &gy[i], -1, GUARD_SPEED);
+                climb_up(x, &gy[i], GUARD_SPEED);
             }
         }
         return;
     }
 
     if (!grounded(x, y) && !ladder_here(x, y) && !rope_here(x, y)) {
-        nudge_y(x, &gy[i], 1, 1);
+        nudge_y(x, &gy[i], 1, GUARD_SPEED);
+        plant_feet(x, &gy[i]);
         if (body_in_hole(x, gy[i])) {
             gtrap[i] = 1;
         }
@@ -993,7 +1205,7 @@ static void step_guard(unsigned char i) {
         if (fits(nx, y)) {
             x = nx;
         }
-        nudge_y(x, &y, -1, GUARD_SPEED);
+        climb_up(x, &y, GUARD_SPEED);
         gx[i] = x;
         gy[i] = y;
         return;
@@ -1018,8 +1230,10 @@ static void step_guard(unsigned char i) {
     dir = 0;
     if (tx < x) {
         dir = -1;
+        gface[i] = 0;
     } else if (tx > x) {
         dir = 1;
+        gface[i] = 1;
     }
     if (dist > GUARD_SPEED) {
         dist = GUARD_SPEED;
@@ -1030,8 +1244,10 @@ static void step_guard(unsigned char i) {
         return;
     }
     if (dir) {
+        plant_feet(x, &y);
         nudge_x(&x, y, dir, (unsigned char)dist);
         gx[i] = x;
+        gy[i] = y;
     }
 }
 
@@ -1097,7 +1313,11 @@ static void place_sprites(void) {
 
     ena = 0;
     hi = 0;
-    sprite_on(0, px, py, pframe, 1, &ena, &hi);
+    fr = pframe;
+    if (pface) {
+        fr = (unsigned char)(fr + 4);
+    }
+    sprite_on(0, px, py, fr, 1, &ena, &hi);
     for (i = 0; i < GUARDS; ++i) {
         fr = 0;
         if (gtrap[i]) {
@@ -1105,16 +1325,13 @@ static void place_sprites(void) {
         } else if (tick & 4) {
             fr = 1;
         }
+        if (gface[i]) {
+            fr = (unsigned char)(fr + 4);
+        }
         sprite_on((unsigned char)(1 + i), gx[i], gy[i], fr, galive[i], &ena, &hi);
     }
     VIC.spr_hi_x = hi;
     VIC.spr_ena = ena;
-}
-
-static void load_font(void) {
-    *(unsigned char *)0x01 = 0x33;
-    memcpy(FONT, (void *)0xD000, 2048);
-    *(unsigned char *)0x01 = 0x37;
 }
 
 static void setup_vic(void) {
@@ -1138,7 +1355,7 @@ static void setup_vic(void) {
         ((unsigned char *)0xD400)[i] = 0;
     }
     ((unsigned char *)0xD400)[24] = 0x0F;
-    memcpy((void *)0x6400, sprites, 256);
+    memcpy((void *)0x6400, sprites, 512);
 }
 
 static void new_game(void) {
@@ -1184,11 +1401,9 @@ int main(void) {
     VIC.ctrl1 = 0x0B;
 
     make_div10();
-    load_font();
     setup_vic();
     new_game();
     VIC.ctrl1 = 0x3B;
-    setup_split();
 
     while (1) {
         wait_frame();

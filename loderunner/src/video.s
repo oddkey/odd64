@@ -10,7 +10,7 @@ _bitmap:
 _screen:
         .res 1024, 0
 
-; Plot one 10x10 block as 5 by 10 multicolor pixels.
+; Plot one block as 5 by 11 multicolor pixels.
 ; Bit 4 of each row word is the leftmost pixel. Each pixel is two hires
 ; dots wide. A cell keeps up to three inks plus the black background.
 ; void blit_block(const unsigned int *rows, unsigned int x, unsigned int y,
@@ -82,7 +82,7 @@ nextrow:
         inc tmp3
         pla
         tay
-        cpy #20
+        cpy #22
         bne rowloop
         rts
 
@@ -269,16 +269,20 @@ masksh: eor #$FF
         clc
         adc ycell
         sta offhi
+        ; xcell*8 can be 256 or more. Keep that bit, or columns past
+        ; x=255 are drawn 256 pixels to the left.
         lda xcell
         asl
         asl
         asl
-        clc
+        bcc xoff
+        inc offhi
+xoff:   clc
         adc offlo
         sta offlo
-        lda offhi
-        adc #0
-        sta offhi
+        bcc xdone
+        inc offhi
+xdone:
         lda tmp3
         and #7
         clc
@@ -302,56 +306,4 @@ masksh: eor #$FF
         pla
         tax
         rts
-.endproc
-
-; The status rows stay hires. Switch at the last playfield line and
-; back once those rows have been scanned.
-.segment "BSS"
-split:  .res 1
-
-.segment "CODE"
-.export _setup_split
-.proc _setup_split
-        lda #0
-        sta split
-        lda #226
-        sta $D012
-        lda #$7F
-        sta $DC0D
-        lda $DC0D
-        lda #$01
-        sta $D01A
-        lda #$FF
-        sta $D019
-        lda #<irq
-        sta $0314
-        lda #>irq
-        sta $0315
-        cli
-        rts
-
-irq:    lda split
-        bne restore
-        lda #$08
-        sta $D016
-        lda #251
-        sta $D012
-        lda #1
-        sta split
-        jmp ack
-restore:
-        lda #$18
-        sta $D016
-        lda #226
-        sta $D012
-        lda #0
-        sta split
-ack:    lda #$FF
-        sta $D019
-        pla
-        tay
-        pla
-        tax
-        pla
-        rti
 .endproc
